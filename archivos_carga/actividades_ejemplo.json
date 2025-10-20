@@ -1,0 +1,122 @@
+[
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Asturias",
+    "profesor_email": "laura.fernandez@uniovi.es",
+    "nombre": "Curso de Python",
+    "objetivos": "Aprender fundamentos de programación",
+    "contenidos": "Variables, bucles, estructuras de datos",
+    "remuneracion": 400,
+    "fecha_inicio": "2025-12-01",
+    "fecha_fin": "2025-12-02",
+    "lugar": "Sede COIIPA",
+    "cuota": 50
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Galicia",
+    "profesor_email": "carlos.vazquez@udc.es",
+    "nombre": "Machine Learning Aplicado",
+    "objetivos": "Introducir ML supervisado y no supervisado",
+    "contenidos": "Regresión, clustering, pipelines",
+    "remuneracion": 480,
+    "fecha_inicio": "2025-11-15",
+    "fecha_fin": "2025-11-17",
+    "lugar": "Sede COG",
+    "cuota": 60
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Asturias",
+    "profesor_email": "laura.fernandez@uniovi.es",
+    "nombre": "Curso Gratuito de Docker",
+    "objetivos": "Introducción a contenedores",
+    "contenidos": "Dockerfile, volúmenes, redes",
+    "remuneracion": 300,
+    "fecha_inicio": "2026-01-05",
+    "fecha_fin": "2026-01-05",
+    "lugar": "Sede COIIPA",
+    "cuota": 0
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Galicia",
+    "profesor_email": "carlos.vazquez@udc.es",
+    "nombre": "DevOps Avanzado",
+    "objetivos": "Mejorar procesos de despliegue continuo",
+    "contenidos": "CI/CD, integración, testing",
+    "remuneracion": 500,
+    "fecha_inicio": "2025-12-10",
+    "fecha_fin": "2025-12-12",
+    "lugar": "Sede COG",
+    "cuota": 80
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Asturias",
+    "profesor_email": "laura.fernandez@uniovi.es",
+    "nombre": "Curso de Kubernetes",
+    "objetivos": "Orquestación de contenedores",
+    "contenidos": "K8s, pods, services, deployments",
+    "remuneracion": 450,
+    "fecha_inicio": "2025-12-20",
+    "fecha_fin": "2025-12-21",
+    "lugar": "Sede COIIPA",
+    "cuota": 75
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Galicia",
+    "profesor_email": "carlos.vazquez@udc.es",
+    "nombre": "Curso de Git y GitHub",
+    "objetivos": "Gestión de versiones y trabajo colaborativo",
+    "contenidos": "Commits, branches, pull requests",
+    "remuneracion": 350,
+    "fecha_inicio": "2025-11-25",
+    "fecha_fin": "2025-11-25",
+    "lugar": "Sede COG",
+    "cuota": 40
+  },
+  {
+    "colegio": "Colegio Falso",
+    "profesor_email": "laura.fernandez@uniovi.es",
+    "nombre": "Curso Erróneo 1",
+    "objetivos": "Error por colegio inexistente",
+    "contenidos": "---",
+    "remuneracion": 400,
+    "fecha_inicio": "2025-12-01",
+    "fecha_fin": "2025-12-02",
+    "lugar": "Sede desconocida",
+    "cuota": 50
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Asturias",
+    "profesor_email": "profesor.falso@uniovi.es",
+    "nombre": "Curso Erróneo 2",
+    "objetivos": "Error por profesor inexistente",
+    "contenidos": "---",
+    "remuneracion": 350,
+    "fecha_inicio": "2025-12-03",
+    "fecha_fin": "2025-12-04",
+    "lugar": "Sede COIIPA",
+    "cuota": 50
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Galicia",
+    "profesor_email": "carlos.vazquez@udc.es",
+    "nombre": "Curso Erróneo 3",
+    "objetivos": "Fechas invertidas",
+    "contenidos": "---",
+    "remuneracion": 320,
+    "fecha_inicio": "2025-12-10",
+    "fecha_fin": "2025-12-05",
+    "lugar": "Sede COG",
+    "cuota": 50
+  },
+  {
+    "colegio": "Colegio Oficial de Ingenieria Informatica de Asturias",
+    "profesor_email": "laura.fernandez@uniovi.es",
+    "nombre": "Curso Erróneo 4",
+    "objetivos": "Remuneración negativa",
+    "contenidos": "---",
+    "remuneracion": -200,
+    "fecha_inicio": "2025-12-08",
+    "fecha_fin": "2025-12-09",
+    "lugar": "Sede COIIPA",
+    "cuota": 20
+  }
+]

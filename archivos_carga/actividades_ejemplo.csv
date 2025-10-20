@@ -1,0 +1,11 @@
+colegio,profesor_email,nombre,objetivos,contenidos,remuneracion,fecha_inicio,fecha_fin,lugar,cuota,fecha_apertura,fecha_cierre
+Colegio Oficial de Ingenieria Informatica de Asturias,laura.fernandez@uniovi.es,Curso de Python,Aprender fundamentos de programación,Variables; bucles; estructuras de datos,400,2025-12-01,2025-12-02,Sede COIIPA,50,,
+Colegio Oficial de Ingenieria Informatica de Galicia,carlos.vazquez@udc.es,Machine Learning Aplicado,Introducir ML supervisado y no supervisado,Regresión; clustering; pipelines,480,2025-11-15,2025-11-17,Sede COG,60,,
+Colegio Oficial de Ingenieria Informatica de Asturias,laura.fernandez@uniovi.es,Curso Gratuito de Docker,Introducción a contenedores,Dockerfile; volúmenes; redes,300,2026-01-05,2026-01-05,Sede COIIPA,0,,
+Colegio Oficial de Ingenieria Informatica de Galicia,carlos.vazquez@udc.es,DevOps Avanzado,Mejorar procesos de despliegue continuo,CI/CD; integración; testing,500,2025-12-10,2025-12-12,Sede COG,80,,
+Colegio Oficial de Ingenieria Informatica de Asturias,laura.fernandez@uniovi.es,Curso de Kubernetes,Orquestación de contenedores,K8s; pods; services; deployments,450,2025-12-20,2025-12-21,Sede COIIPA,75,,
+Colegio Oficial de Ingenieria Informatica de Galicia,carlos.vazquez@udc.es,Curso de Git y GitHub,Gestión de versiones y trabajo colaborativo,Commits; branches; pull requests,350,2025-11-25,2025-11-25,Sede COG,40,,
+Colegio Falso,laura.fernandez@uniovi.es,Curso Erróneo 1,Error por colegio inexistente,---,400,2025-12-01,2025-12-02,Sede desconocida,50,,
+Colegio Oficial de Ingenieria Informatica de Asturias,profesor.falso@uniovi.es,Curso Erróneo 2,Error por profesor inexistente,---,350,2025-12-03,2025-12-04,Sede COIIPA,50,,
+Colegio Oficial de Ingenieria Informatica de Galicia,carlos.vazquez@udc.es,Curso Erróneo 3,Fechas invertidas,---,320,2025-12-10,2025-12-05,Sede COG,50,,
+Colegio Oficial de Ingenieria Informatica de Asturias,laura.fernandez@uniovi.es,Curso Erróneo 4,Remuneración negativa,---,-200,2025-12-08,2025-12-09,Sede COIIPA,20,,
