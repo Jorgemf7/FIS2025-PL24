@@ -38,13 +38,12 @@ CREATE TABLE actividad (
     fecha_cierre_inscripcion   TEXT NOT NULL CHECK (fecha_cierre_inscripcion   LIKE '____-__-__'),
     gratuita INTEGER NOT NULL DEFAULT 0 CHECK (gratuita IN (0,1)),
     cuota REAL DEFAULT 0 CHECK(cuota >= 0),
-    
     -- Reglas de coherencia básicas columna a columna
     CHECK (date(fecha_inicio) <= date(fecha_fin)),
     CHECK (date(fecha_apertura_inscripcion) <= date(fecha_cierre_inscripcion)),
     CHECK (date(fecha_cierre_inscripcion) <= date(fecha_inicio)),
     CHECK ( (gratuita = 1 AND cuota = 0) OR (gratuita = 0 AND cuota >= 0) ),
-    UNIQUE(id_colegio, nombre),
+    UNIQUE(id_colegio, nombre), -- Evita duplicar el mismo nombre en el mismo colegio
     FOREIGN KEY (id_colegio)  REFERENCES colegio(id_colegio),
     FOREIGN KEY (id_profesor) REFERENCES profesor(id_profesor)
 );
