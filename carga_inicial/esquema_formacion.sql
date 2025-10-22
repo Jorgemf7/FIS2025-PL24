@@ -3,6 +3,7 @@
 DROP TABLE IF EXISTS actividad;
 DROP TABLE IF EXISTS profesor;
 DROP TABLE IF EXISTS colegio;
+DROP TABLE IF EXISTS movimiento;
 
 -- Tabla de colegios
 CREATE TABLE colegio (
@@ -47,3 +48,21 @@ CREATE TABLE actividad (
     FOREIGN KEY (id_colegio)  REFERENCES colegio(id_colegio),
     FOREIGN KEY (id_profesor) REFERENCES profesor(id_profesor)
 );
+
+
+-- Movimientos económicos por actividad formativa
+CREATE TABLE IF NOT EXISTS movimiento (
+    id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_actividad  INTEGER NOT NULL,
+    tipo          TEXT    NOT NULL CHECK (tipo IN ('ingreso','gasto')),
+    fecha         TEXT    NOT NULL CHECK (fecha LIKE '____-__-__'), -- YYYY-MM-DD
+    importe       REAL    NOT NULL CHECK (importe >= 0),
+    descripcion   TEXT,
+    confirmado    INTEGER NOT NULL DEFAULT 0 CHECK (confirmado IN (0,1)),
+    FOREIGN KEY (id_actividad) REFERENCES actividad(id_actividad) ON DELETE CASCADE
+);
+
+-- Índices recomendados
+CREATE INDEX IF NOT EXISTS idx_mov_actividad ON movimiento(id_actividad);
+CREATE INDEX IF NOT EXISTS idx_mov_fecha     ON movimiento(fecha);
+CREATE INDEX IF NOT EXISTS idx_mov_tipo      ON movimiento(tipo);
