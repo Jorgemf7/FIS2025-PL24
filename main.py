@@ -1,6 +1,7 @@
 from datetime import datetime
 from carga_inicial import setup_formacion_db
 import AñadirActividad
+import ConsultarBalance  # <-- NUEVO: consultas
 from utils import prettytable
 
 
@@ -16,6 +17,7 @@ def main():
     acciones_principales = [
         "Quiero realizar una inserción\n",
         "Quiero cargar los datos iniciales\n",
+        "Quiero realizar consultas\n",
         "Quiero cerrar la aplicación\n"
     ]
 
@@ -51,11 +53,34 @@ def main():
         elif numero == 2:
             print("\nCargando la base de datos inicial...")
             setup_formacion_db.crear_db(db_name, schema_sql, data_sql)
-            print("✅ Base de datos creada o actualizada correctamente.")
+            print("Base de datos creada o actualizada correctamente.")
 
         elif numero == 3:
+            # --- NUEVO SUBMENÚ: CONSULTAS ---
+            acciones_consultas = [
+                "Consultar balance económico por actividad (ingresos/gastos, confirmados/estimados)\n",
+                "Volver atrás\n"
+            ]
+
+            print("\n¿Qué consulta deseas realizar?")
+            for i, accion in enumerate(acciones_consultas, 1):
+                print(f"{i}. {accion}")
+
+            n3 = int(input("Introduce la acción deseada: "))
+
+            if n3 == 1:
+                # Llama al módulo de consultas
+                ConsultarBalance.main()
+            elif n3 == 2:
+                return main()
+            else:
+                print("Esa opción no existe.")
+                break
+
+        elif numero == 4:
             print("¡Hasta la próxima!")
             break
+
         else:
             print("Ese número no se encuentra entre las opciones actualmente.")
             break
