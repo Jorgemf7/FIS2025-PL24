@@ -130,53 +130,55 @@ INSERT INTO actividad (
 
 -- ============================================================
 --  4. MOVIMIENTOS ECONÓMICOS
+--  (ajustados a las reglas: ingresos > 0, gastos < 0, fecha dentro del periodo)
+--  columnas: id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado
 -- ============================================================
 
--- Actividad 1 (INSCRIPCIÓN ABIERTA)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(1,'ingreso','2025-10-15', 600.00,'Matrículas confirmadas',1),
-(1,'gasto'  ,'2025-10-17', 280.00,'Honorarios profesor',1),
-(1,'gasto'  ,'2025-10-19',  50.00,'Material didáctico',1),
-(1,'ingreso','2025-10-20', 100.00,'Inscripciones pendientes',0);
+-- Actividad 1 (INSCRIPCIÓN ABIERTA, 2025-11-10..12)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(1,'ingreso','2025-11-10',  600.00,'Matrículas confirmadas','alumno',1),
+(1,'gasto'  ,'2025-11-11', -280.00,'Honorarios profesor','profesor',1),
+(1,'gasto'  ,'2025-11-12',  -50.00,'Material didáctico','otro',1),
+(1,'ingreso','2025-11-12',  100.00,'Inscripciones de última hora','alumno',0);
 
--- Actividad 2 (PLANIFICADO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(2,'ingreso','2025-11-10', 400.00,'Preinscripciones estimadas',0),
-(2,'gasto'  ,'2025-11-25', 150.00,'Material (presupuesto)',0);
+-- Actividad 2 (PLANIFICADO, 2025-12-02)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(2,'ingreso','2025-12-02',  400.00,'Preinscripciones (día del curso)','alumno',0),
+(2,'gasto'  ,'2025-12-02', -150.00,'Material (presupuesto)','otro',0);
 
--- Actividad 3 (EN CURSO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(3,'ingreso','2025-10-20', 380.00,'Matrículas confirmadas (primer corte)',1),
-(3,'gasto'  ,'2025-10-21', 150.00,'Alquiler aula (confirmado)',1),
-(3,'ingreso','2025-10-22', 120.00,'Inscripciones en curso (estimado)',0);
+-- Actividad 3 (EN CURSO, 2025-10-21..23)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(3,'ingreso','2025-10-21',  380.00,'Matrículas confirmadas (primer corte)','alumno',1),
+(3,'gasto'  ,'2025-10-22', -150.00,'Alquiler aula','otro',1),
+(3,'ingreso','2025-10-23',  120.00,'Inscripciones en curso','alumno',0);
 
--- Actividad 4 (CERRADO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(4,'ingreso','2025-09-05', 420.00,'Matrículas confirmadas',1),
-(4,'gasto'  ,'2025-09-09', 180.00,'Honorarios profesor',1),
-(4,'gasto'  ,'2025-09-09',  40.00,'Material',1);
+-- Actividad 4 (CERRADO, 2025-09-10)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(4,'ingreso','2025-09-10',  420.00,'Matrículas confirmadas','alumno',1),
+(4,'gasto'  ,'2025-09-10', -180.00,'Honorarios profesor','profesor',1),
+(4,'gasto'  ,'2025-09-10',  -40.00,'Material','otro',1);
 
--- Actividad 5 (PLANIFICADO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(5,'ingreso','2025-11-30', 300.00,'Preinscripciones estimadas',0),
-(5,'gasto'  ,'2025-12-14', 220.00,'Aula (presupuesto)',0);
+-- Actividad 5 (PLANIFICADO, 2025-12-15..16)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(5,'ingreso','2025-12-15',  300.00,'Preinscripciones estimadas','alumno',0),
+(5,'gasto'  ,'2025-12-16', -220.00,'Aula (presupuesto)','otro',0);
 
--- Actividad 6 (INSCRIPCIÓN ABIERTA)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(6,'ingreso','2025-10-18', 210.00,'Matrículas confirmadas (tempranas)',1),
-(6,'ingreso','2025-10-25', 140.00,'Matrículas previstas (estimado)',0),
-(6,'gasto'  ,'2025-11-15', 120.00,'Material (presupuesto)',0);
+-- Actividad 6 (INSCRIPCIÓN ABIERTA, 2025-12-05..06)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(6,'ingreso','2025-12-05',  210.00,'Matrículas confirmadas (tempranas)','alumno',1),
+(6,'ingreso','2025-12-06',  140.00,'Matrículas previstas','alumno',0),
+(6,'gasto'  ,'2025-12-06', -120.00,'Material (presupuesto)','otro',0);
 
--- Actividad 7 (EN CURSO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(7,'ingreso','2025-10-20', 700.00,'Inscripciones confirmadas',1),
-(7,'gasto'  ,'2025-10-21', 300.00,'Profesorado y materiales',1),
-(7,'ingreso','2025-10-22', 100.00,'Pagos pendientes',0);
+-- Actividad 7 (EN CURSO, 2025-10-20..24)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(7,'ingreso','2025-10-20',  700.00,'Inscripciones confirmadas','alumno',1),
+(7,'gasto'  ,'2025-10-21', -300.00,'Profesorado y materiales','profesor',1),
+(7,'ingreso','2025-10-24',  100.00,'Pagos pendientes','alumno',0);
 
--- Actividad 8 (CERRADO)
-INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, confirmado) VALUES
-(8,'ingreso','2025-09-03', 350.00,'Inscripciones confirmadas',1),
-(8,'gasto'  ,'2025-09-06', 220.00,'Gastos del evento',1);
+-- Actividad 8 (CERRADO, 2025-09-05..06)
+INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado) VALUES
+(8,'ingreso','2025-09-05',  350.00,'Inscripciones confirmadas','alumno',1),
+(8,'gasto'  ,'2025-09-06', -220.00,'Gastos del evento','otro',1);
 
 -- ============================================================
 -- FIN DE LOS DATOS INICIALES

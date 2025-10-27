@@ -1,7 +1,8 @@
 from datetime import datetime
 from carga_inicial import setup_formacion_db
 import AñadirActividad
-import ConsultarBalance  # <-- NUEVO: consultas
+import RegistrarMovimientos       # <-- NUEVO: registro de ingresos/gastos
+import ConsultarBalance           # <-- EXISTENTE: consultas
 from utils import prettytable
 
 
@@ -29,9 +30,11 @@ def main():
 
     while numero != len(acciones_principales):
 
+        # --- INSERCIONES ---
         if numero == 1:
             acciones_insercion = [
                 "Registrar una nueva actividad formativa (interactiva o desde CSV/JSON)\n",
+                "Registrar ingresos/gastos (individual o CSV)\n",  # <-- NUEVA OPCIÓN
                 "Volver atrás\n"
             ]
 
@@ -42,21 +45,23 @@ def main():
             n2 = int(input("Introduce la acción deseada: "))
 
             if n2 == 1:
-                # Llama directamente al script AñadirActividad
                 AñadirActividad.main()
             elif n2 == 2:
+                RegistrarMovimientos.main()   # <-- NUEVA FUNCIÓN AQUÍ
+            elif n2 == 3:
                 return main()
             else:
                 print("Esa opción no existe.")
                 break
 
+        # --- CARGA INICIAL ---
         elif numero == 2:
             print("\nCargando la base de datos inicial...")
             setup_formacion_db.crear_db(db_name, schema_sql, data_sql)
             print("Base de datos creada o actualizada correctamente.")
 
+        # --- CONSULTAS ---
         elif numero == 3:
-            # --- NUEVO SUBMENÚ: CONSULTAS ---
             acciones_consultas = [
                 "Consultar balance económico por actividad (ingresos/gastos, confirmados/estimados)\n",
                 "Volver atrás\n"
@@ -69,7 +74,6 @@ def main():
             n3 = int(input("Introduce la acción deseada: "))
 
             if n3 == 1:
-                # Llama al módulo de consultas
                 ConsultarBalance.main()
             elif n3 == 2:
                 return main()
@@ -77,6 +81,7 @@ def main():
                 print("Esa opción no existe.")
                 break
 
+        # --- SALIDA ---
         elif numero == 4:
             print("¡Hasta la próxima!")
             break

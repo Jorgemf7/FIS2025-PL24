@@ -222,7 +222,7 @@ def _exportar_pdf(cerrados, no_cerrados, etiqueta=""):
                   "Ing. est.", "Gas. est.", "Bal. total estimado"]
         data_n = [[P(x) for x in cabe_n]] + [[P(x) for x in row] for row in no_cerrados]
 
-        # ¡IMPORTANTE! Ratios que suman <= 1.00
+        
         # fecha, nombre, estado, 6 columnas numéricas
         ratios_n = [0.09, 0.41, 0.12, 0.06, 0.06, 0.06, 0.06, 0.06, 0.08]  # total = 1.00
         col_w_n = [r * avail_w for r in ratios_n]

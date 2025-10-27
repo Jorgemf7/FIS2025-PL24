@@ -1,9 +1,8 @@
-
 -- Reset
+DROP TABLE IF EXISTS movimiento;
 DROP TABLE IF EXISTS actividad;
 DROP TABLE IF EXISTS profesor;
 DROP TABLE IF EXISTS colegio;
-DROP TABLE IF EXISTS movimiento;
 
 -- Tabla de colegios
 CREATE TABLE colegio (
@@ -39,30 +38,34 @@ CREATE TABLE actividad (
     fecha_cierre_inscripcion   TEXT NOT NULL CHECK (fecha_cierre_inscripcion   LIKE '____-__-__'),
     gratuita INTEGER NOT NULL DEFAULT 0 CHECK (gratuita IN (0,1)),
     cuota REAL DEFAULT 0 CHECK(cuota >= 0),
-    -- Reglas de coherencia básicas columna a columna
     CHECK (date(fecha_inicio) <= date(fecha_fin)),
     CHECK (date(fecha_apertura_inscripcion) <= date(fecha_cierre_inscripcion)),
     CHECK (date(fecha_cierre_inscripcion) <= date(fecha_inicio)),
     CHECK ( (gratuita = 1 AND cuota = 0) OR (gratuita = 0 AND cuota >= 0) ),
-    UNIQUE(id_colegio, nombre), -- Evita duplicar el mismo nombre en el mismo colegio
+    UNIQUE(id_colegio, nombre),
     FOREIGN KEY (id_colegio)  REFERENCES colegio(id_colegio),
     FOREIGN KEY (id_profesor) REFERENCES profesor(id_profesor)
 );
 
-
 -- Movimientos económicos por actividad formativa
-CREATE TABLE IF NOT EXISTS movimiento (
+CREATE TABLE movimiento (
     id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
     id_actividad  INTEGER NOT NULL,
     tipo          TEXT    NOT NULL CHECK (tipo IN ('ingreso','gasto')),
-    fecha         TEXT    NOT NULL CHECK (fecha LIKE '____-__-__'), -- YYYY-MM-DD
-    importe       REAL    NOT NULL CHECK (importe >= 0),
+    fecha         TEXT    NOT NULL CHECK (fecha LIKE '____-__-__'),
+    importe       REAL    NOT NULL,
     descripcion   TEXT,
-    confirmado    INTEGER NOT NULL DEFAULT 0 CHECK (confirmado IN (0,1)),
+    categoria     TEXT    NOT NULL DEFAULT 'otro' CHECK (categoria IN ('alumno','profesor','otro')),
+    confirmado    INTEGER NOT NULL DEFAULT 1 CHECK (confirmado IN (0,1)),
+    CHECK ( (tipo='ingreso' AND importe > 0) OR (tipo='gasto' AND importe < 0) ),
     FOREIGN KEY (id_actividad) REFERENCES actividad(id_actividad) ON DELETE CASCADE
 );
 
--- Índices recomendados
+-- Índices
 CREATE INDEX IF NOT EXISTS idx_mov_actividad ON movimiento(id_actividad);
 CREATE INDEX IF NOT EXISTS idx_mov_fecha     ON movimiento(fecha);
 CREATE INDEX IF NOT EXISTS idx_mov_tipo      ON movimiento(tipo);
+
+-- Antiduplicados
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mov_no_duplicados
+ON movimiento(id_actividad, fecha, tipo, importe, IFNULL(descripcion,''), categoria);
