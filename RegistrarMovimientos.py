@@ -123,14 +123,21 @@ def _alta_individual():
     id_actividad, nombre, f_ini, f_fin = act
     print(f"Actividad seleccionada: {nombre} ({f_ini} a {f_fin})")
 
-    tipo = _validar_tipo(input("Tipo (ingreso/gasto): "))
     fecha = input("Fecha (YYYY-MM-DD): ").strip()
     _validar_fecha_en_actividad(fecha, act)
-    importe = _coerce_importe(input("Importe (positivo ingreso / negativo gasto): "))
+
+    importe = _coerce_importe(input("Importe (positivo => ingreso / negativo => gasto): "))
+    if importe == 0:
+        print("Error: el importe no puede ser 0.")
+        return
+
+    tipo = "ingreso" if importe > 0 else "gasto"
+    # Validación de coherencia (mantiene la semántica centralizada)
     _validar_regla_signo(tipo, importe)
+
     descripcion = input("Descripción: ").strip()
     categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
-    confirmado = 1  # si quieres pedirlo: int(input("Confirmado? 1/0 [1]: ") or "1")
+    confirmado = 1  # si quieres pedirlo, cámbialo aquí
 
     # Duplicado
     if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
@@ -141,8 +148,12 @@ def _alta_individual():
     cabe = ["Campo","Valor"]
     cont = [
         ["Actividad", f"{nombre} (ID {id_actividad})"],
-        ["Tipo", tipo], ["Fecha", fecha], ["Importe", f"{importe:.2f}"],
-        ["Descripción", descripcion], ["Categoría", categoria], ["Confirmado", confirmado],
+        ["Fecha", fecha],
+        ["Importe", f"{importe:.2f}"],
+        ["Tipo inferido", tipo],
+        ["Descripción", descripcion],
+        ["Categoría", categoria],
+        ["Confirmado", confirmado],
     ]
     print("\nResumen a registrar:")
     print(tabla(cabe, cont))
@@ -154,6 +165,9 @@ def _alta_individual():
             print(f"Error: {e}")
     else:
         print("Operación cancelada.")
+
+
+
 
 def _cargar_csv():
     print("\n=== Carga masiva CSV ===")

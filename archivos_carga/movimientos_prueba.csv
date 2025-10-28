@@ -1,0 +1,22 @@
+actividad_nombre,tipo,fecha,importe,descripcion,categoria
+Introducción a la Inteligencia Artificial,ingreso,2025-11-10,150.00,Matrícula 1,alumno
+Introducción a la Inteligencia Artificial,gasto,2025-11-11,-60.00,Material fungible,otro
+Introducción a SQL,ingreso,2025-09-10,200.00,Inscripción tardía,alumno
+Introducción a SQL,gasto,2025-09-10,-40.00,Coffee break,otro
+Docker Avanzado,ingreso,2025-12-05,90.00,Reserva anticipada,alumno
+Docker Avanzado,gasto,2025-12-06,-30.00,Decoración del aula,otro
+Data Science con Python,gasto,2025-10-22,-120.00,Limpieza post taller,otro
+Data Science con Python,ingreso,2025-10-23,130.00,Nuevas inscripciones,alumno
+Seguridad en la Nube,gasto,2025-12-15,-200.00,Honorarios docente,profesor
+Seguridad en la Nube,ingreso,2025-12-16,250.00,Matrículas en revisión,alumno
+Arquitecturas de Microservicios,ingreso,2025-10-21,180.00,Inscripción parcial,alumno
+Introducción a Redes Neuronales,gasto,2025-09-06,-35.00,Impresiones,otro
+# Errores esperados a partir de aquí
+Introducción a la Inteligencia Artificial,ingreso,2025-11-13,50.00,Fecha fuera del rango,alumno
+Curso Inexistente,gasto,2025-11-20,-50.00,Curso no registrado,otro
+Data Science con Python,ingreso,2025-10-22,-75.00,Signo mal puesto en ingreso,alumno
+Docker Avanzado,gasto,2025-12-05,55.00,Signo mal puesto en gasto,otro
+Introducción a SQL,ingreso,2025-09-10,abc,Importe no numérico,alumno
+Seguridad en la Nube,ingreso,2025-13-01,120.00,Fecha inválida,alumno
+Arquitecturas de Microservicios,ingreso,2025-10-22,90.00,Categoría inválida,estudiante
+Introducción a SQL,ingreso,2025-09-10,200.00,Inscripción tardía,alumno
