@@ -61,11 +61,33 @@ CREATE TABLE movimiento (
     FOREIGN KEY (id_actividad) REFERENCES actividad(id_actividad) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS alerta_pago (
+    id_alerta       INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_actividad    INTEGER NOT NULL,
+    id_movimiento   INTEGER,                         -- opcional: referencia al movimiento implicado
+    tipo_incidente  TEXT NOT NULL                    -- 'importe_incorrecto' | 'duplicado' | 'pendiente_fuera_plazo'
+                  CHECK (tipo_incidente IN ('importe_incorrecto','duplicado','pendiente_fuera_plazo')),
+    descripcion     TEXT NOT NULL,
+    alumno_ref      TEXT,                            -- opcional (no hay tabla de alumnos)
+    estado          TEXT NOT NULL DEFAULT 'pendiente' -- 'pendiente' | 'en_revision' | 'resuelta'
+                  CHECK (estado IN ('pendiente','en_revision','resuelta')),
+    fecha_generacion TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (id_actividad)  REFERENCES actividad(id_actividad)  ON DELETE CASCADE,
+    FOREIGN KEY (id_movimiento) REFERENCES movimiento(id_movimiento) ON DELETE CASCADE
+);
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_mov_actividad ON movimiento(id_actividad);
 CREATE INDEX IF NOT EXISTS idx_mov_fecha     ON movimiento(fecha);
 CREATE INDEX IF NOT EXISTS idx_mov_tipo      ON movimiento(tipo);
+CREATE INDEX IF NOT EXISTS idx_alerta_estado ON alerta_pago(estado);
+CREATE INDEX IF NOT EXISTS idx_alerta_actividad ON alerta_pago(id_actividad);
 
 -- Antiduplicados
 CREATE UNIQUE INDEX IF NOT EXISTS ux_mov_no_duplicados
 ON movimiento(id_actividad, fecha, tipo, importe, IFNULL(descripcion,''), categoria);
+
+-- Evita alertas duplicadas para el mismo hecho (si ya existe una igual, no crear otra)
+-- Clave de idempotencia: (tipo, actividad, movimiento?, alumno_ref)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_alerta_pago_unica
+ON alerta_pago (tipo_incidente, id_actividad, IFNULL(id_movimiento,-1), IFNULL(alumno_ref,''));
