@@ -17,7 +17,7 @@ def _con():
 
 def _buscar_actividades_por_nombre(substr):
     q = """
-    SELECT id_actividad, nombre, fecha_inicio, fecha_fin
+    SELECT id_actividad, nombre, fecha_inicio, fecha_fin, remuneracion, cuota, gratuita
     FROM actividad
     WHERE LOWER(nombre) LIKE LOWER(?) 
     ORDER BY fecha_inicio, nombre
@@ -74,21 +74,54 @@ def _validar_fecha_en_actividad(fecha_txt, act):
     ff = validar_fecha(act[3])  # fecha_fin
     f  = validar_fecha(fecha_txt)
     if not f:
-        raise ValueError("fecha con formato inválido (YYYY-MM-DD)")
+        raise ValueError("fecha inválida (YYYY-MM-DD)")
     if f < fi or f > ff:
-        raise ValueError("fecha fuera del periodo de la acción formativa")
+        raise ValueError(f"fecha fuera del periodo de la actividad ({fi.date()} a {ff.date()})")
 
 def _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
     q = """
-    SELECT 1 FROM movimiento
-    WHERE id_actividad=? AND fecha=? AND tipo=? AND importe=? 
-          AND IFNULL(descripcion,'')=IFNULL(?, '') AND categoria=?
+    SELECT 1
+    FROM movimiento
+    WHERE id_actividad=? AND fecha=? AND tipo=? AND importe=? AND descripcion=? AND categoria=?
     LIMIT 1
     """
     with _con() as con:
         cur = con.cursor()
         cur.execute(q, (id_actividad, fecha, tipo, importe, descripcion, categoria))
         return cur.fetchone() is not None
+
+def _validar_cantidades_esperadas(act, tipo, importe, categoria):
+    """
+    act: tupla de _buscar_actividades_por_nombre
+         [0]=id, [1]=nombre, [2]=f_ini, [3]=f_fin, [4]=remuneracion, [5]=cuota, [6]=gratuita
+    """
+    try:
+        remuneracion = float(act[4])
+    except Exception:
+        remuneracion = 0.0
+    try:
+        cuota = float(act[5] or 0)
+    except Exception:
+        cuota = 0.0
+    try:
+        gratuita = int(act[6])
+    except Exception:
+        gratuita = 0
+
+    # actividad gratuita -> no ingresos de alumno
+    if gratuita == 1 and categoria == "alumno" and tipo == "ingreso":
+        raise ValueError("actividad gratuita: no se admiten ingresos de alumno")
+
+    # ingresos alumno -> múltiplos de cuota (>0)
+    if categoria == "alumno" and tipo == "ingreso" and cuota > 0:
+        ratio = importe / cuota
+        if abs(ratio - round(ratio)) > 1e-3:
+            raise ValueError(f"importe no válido: debe ser múltiplo de la cuota ({cuota:.2f})")
+
+    # gasto profesor -> debe ser -remuneracion (tolerancia 0.01)
+    if categoria == "profesor" and tipo == "gasto":
+        if abs((importe + remuneracion)) > 0.01:
+            raise ValueError(f"gasto profesor esperado = -{remuneracion:.2f}")
 
 # ---------- interacción ----------
 def _seleccionar_actividad():
@@ -104,7 +137,8 @@ def _seleccionar_actividad():
         # listado
         cab = ["#", "ID", "Nombre", "Inicio", "Fin"]
         con = []
-        for i, (id_a, nombre, f_ini, f_fin) in enumerate(filas, 1):
+        for i, fila in enumerate(filas, 1):
+            id_a, nombre, f_ini, f_fin = fila[:4]
             con.append([i, id_a, nombre, f_ini, f_fin])
         print("\nResultados:")
         print(tabla(cab, con))
@@ -120,7 +154,7 @@ def _seleccionar_actividad():
 def _alta_individual():
     print("\n=== Alta individual de movimiento ===")
     act = _seleccionar_actividad()
-    id_actividad, nombre, f_ini, f_fin = act
+    id_actividad, nombre, f_ini, f_fin = act[:4]
     print(f"Actividad seleccionada: {nombre} ({f_ini} a {f_fin})")
 
     fecha = input("Fecha (YYYY-MM-DD): ").strip()
@@ -139,6 +173,9 @@ def _alta_individual():
     categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
     confirmado = 1  # si quieres pedirlo, cámbialo aquí
 
+    # Validación contra cantidades esperadas de la actividad
+    _validar_cantidades_esperadas(act, tipo, importe, categoria)
+
     # Duplicado
     if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
         print("Error: movimiento duplicado.")
@@ -150,7 +187,7 @@ def _alta_individual():
         ["Actividad", f"{nombre} (ID {id_actividad})"],
         ["Fecha", fecha],
         ["Importe", f"{importe:.2f}"],
-        ["Tipo inferido", tipo],
+        ["Tipo", tipo],
         ["Descripción", descripcion],
         ["Categoría", categoria],
         ["Confirmado", confirmado],
@@ -165,9 +202,6 @@ def _alta_individual():
             print(f"Error: {e}")
     else:
         print("Operación cancelada.")
-
-
-
 
 def _cargar_csv():
     print("\n=== Carga masiva CSV ===")
@@ -208,6 +242,7 @@ def _cargar_csv():
                 _validar_regla_signo(tipo, importe)
                 descripcion = (row.get("descripcion") or "").strip()
                 categoria = _validar_categoria(row.get("categoria","otro"))
+                _validar_cantidades_esperadas(act, tipo, importe, categoria)
 
                 if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
                     raise ValueError("duplicado")
