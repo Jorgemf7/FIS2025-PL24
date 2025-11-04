@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime
 from utils.fecha import validar_fecha
 from utils.prettytable import tabla
+import math
 
 DB_PATH = "FormacionDB.db"
 CARPETA_CARGA = "archivos_carga"
@@ -15,11 +16,75 @@ TIPOS = {"ingreso", "gasto"}
 def _con():
     return sqlite3.connect(DB_PATH)
 
+import os
+
+def _seleccionar_csv_movimientos():
+    """
+    Muestra los .csv de la carpeta 'archivos_carga' y permite elegir:
+    - por número (1..N)
+    - por texto (nombre exacto o subcadena, case-insensitive)
+    Devuelve la ruta absoluta del CSV o None si no hay selección válida.
+    """
+    carpeta = os.path.join(os.path.dirname(__file__), "archivos_carga")
+    if not os.path.isdir(carpeta):
+        print(f"No existe la carpeta de carga: {carpeta}")
+        return None
+
+    # listar .csv (case-insensitive)
+    archivos = [f for f in os.listdir(carpeta) if f.lower().endswith(".csv")]
+    if not archivos:
+        print("No hay archivos .csv en la carpeta de carga.")
+        return None
+
+    print("\nArchivos CSV disponibles en 'archivos_carga':")
+    for i, f in enumerate(archivos, 1):
+        print(f"  {i}) {f}")
+
+    entrada = input("\nElige archivo (número o nombre/parcial): ").strip()
+
+    # 1) ¿Es número?
+    if entrada.isdigit():
+        idx = int(entrada) - 1
+        if 0 <= idx < len(archivos):
+            return os.path.join(carpeta, archivos[idx])
+        print("Selección fuera de rango.")
+        return None
+
+    # 2) Búsqueda por nombre/parcial (case-insensitive)
+    needle = entrada.lower()
+    # primero intenta match exacto
+    exactos = [f for f in archivos if f.lower() == needle]
+    if exactos:
+        return os.path.join(carpeta, exactos[0])
+
+    # luego por subcadena
+    candidatos = [f for f in archivos if needle in f.lower()]
+    if len(candidatos) == 1:
+        return os.path.join(carpeta, candidatos[0])
+    elif len(candidatos) > 1:
+        print("\nCoinciden varios archivos, especifica mejor:")
+        for i, f in enumerate(candidatos, 1):
+            print(f"  {i}) {f}")
+        return None
+
+    print("No se encontró ningún archivo que coincida.")
+    return None
+
+
 def _buscar_actividades_por_nombre(substr):
     q = """
-    SELECT id_actividad, nombre, fecha_inicio, fecha_fin, remuneracion, cuota, gratuita
+    SELECT
+        id_actividad,
+        nombre,
+        fecha_inicio,
+        fecha_fin,
+        remuneracion,
+        cuota,
+        gratuita,
+        fecha_apertura_inscripcion,
+        fecha_cierre_inscripcion
     FROM actividad
-    WHERE LOWER(nombre) LIKE LOWER(?) 
+    WHERE LOWER(nombre) LIKE LOWER(?)
     ORDER BY fecha_inicio, nombre
     """
     with _con() as con:
@@ -28,7 +93,20 @@ def _buscar_actividades_por_nombre(substr):
         return cur.fetchall()
 
 def _get_actividad_por_id(id_actividad):
-    q = "SELECT id_actividad, nombre, fecha_inicio, fecha_fin FROM actividad WHERE id_actividad=?"
+    q = """
+    SELECT
+        id_actividad,
+        nombre,
+        fecha_inicio,
+        fecha_fin,
+        remuneracion,
+        cuota,
+        gratuita,
+        fecha_apertura_inscripcion,
+        fecha_cierre_inscripcion
+    FROM actividad
+    WHERE id_actividad=?
+    """
     with _con() as con:
         cur = con.cursor()
         cur.execute(q, (id_actividad,))
@@ -69,14 +147,25 @@ def _validar_tipo(t):
         raise ValueError("tipo inválido (use ingreso|gasto)")
     return v
 
-def _validar_fecha_en_actividad(fecha_txt, act):
-    fi = validar_fecha(act[2])  # fecha_inicio
-    ff = validar_fecha(act[3])  # fecha_fin
-    f  = validar_fecha(fecha_txt)
+def _validar_fecha_en_actividad(fecha_txt, act, tipo):
+    # act = (id, nombre, f_ini, f_fin, remun, cuota, gratuita, f_ap, f_ci)
+    f_ini = validar_fecha(act[2])
+    f_fin = validar_fecha(act[3])
+    f_ap  = validar_fecha(act[7])
+    f_ci  = validar_fecha(act[8])
+    f     = validar_fecha(fecha_txt)
     if not f:
-        raise ValueError("fecha inválida (YYYY-MM-DD)")
-    if f < fi or f > ff:
-        raise ValueError(f"fecha fuera del periodo de la actividad ({fi.date()} a {ff.date()})")
+        raise ValueError("fecha con formato inválido (YYYY-MM-DD)")
+
+    if tipo == "ingreso":
+        # entre apertura de inscripción y fin del curso (ambos inclusive)
+        if f < f_ap or f > f_fin:
+            raise ValueError("ingreso fuera de [apertura_inscripción .. fin_curso]")
+    else:
+        # gasto: permitir >= apertura de inscripción (puede ser posterior al curso)
+        if f < f_ap:
+            raise ValueError("gasto anterior a la apertura de inscripción")
+
 
 def _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
     q = """
@@ -90,38 +179,34 @@ def _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria
         cur.execute(q, (id_actividad, fecha, tipo, importe, descripcion, categoria))
         return cur.fetchone() is not None
 
-def _validar_cantidades_esperadas(act, tipo, importe, categoria):
-    """
-    act: tupla de _buscar_actividades_por_nombre
-         [0]=id, [1]=nombre, [2]=f_ini, [3]=f_fin, [4]=remuneracion, [5]=cuota, [6]=gratuita
-    """
-    try:
-        remuneracion = float(act[4])
-    except Exception:
-        remuneracion = 0.0
-    try:
-        cuota = float(act[5] or 0)
-    except Exception:
-        cuota = 0.0
-    try:
-        gratuita = int(act[6])
-    except Exception:
-        gratuita = 0
+EPS = 5e-3  # tolerancia para comparaciones con decimales
 
-    # actividad gratuita -> no ingresos de alumno
-    if gratuita == 1 and categoria == "alumno" and tipo == "ingreso":
-        raise ValueError("actividad gratuita: no se admiten ingresos de alumno")
+def _avisar_cantidades_esperadas(act, tipo, importe, categoria):
+    """
+    Genera avisos (no bloquea) sobre importes esperados.
+    act = (id, nombre, f_ini, f_fin, remuneracion, cuota, gratuita, f_ap, f_ci)
+    """
+    avisos = []
+    try:
+        remuneracion = float(act[4]) if act[4] is not None else 0.0
+        cuota        = float(act[5]) if act[5] is not None else 0.0
+        gratuita     = bool(act[6])
+    except Exception:
+        return avisos  # si el SELECT cambió, no avisamos
 
-    # ingresos alumno -> múltiplos de cuota (>0)
-    if categoria == "alumno" and tipo == "ingreso" and cuota > 0:
+    # Aviso: ingresos que no son múltiplo de la cuota (si hay cuota y no es gratuita)
+    if tipo == "ingreso" and not gratuita and cuota > 0:
         ratio = importe / cuota
-        if abs(ratio - round(ratio)) > 1e-3:
-            raise ValueError(f"importe no válido: debe ser múltiplo de la cuota ({cuota:.2f})")
+        if not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=EPS):
+            avisos.append(f"importe no es múltiplo exacto de la cuota ({cuota:.2f})")
 
-    # gasto profesor -> debe ser -remuneracion (tolerancia 0.01)
-    if categoria == "profesor" and tipo == "gasto":
-        if abs((importe + remuneracion)) > 0.01:
-            raise ValueError(f"gasto profesor esperado = -{remuneracion:.2f}")
+    # Aviso: gasto de profesor que no coincide con la remuneración (signo negativo)
+    if tipo == "gasto" and categoria == "profesor" and remuneracion > 0:
+        if not math.isclose(importe, -remuneracion, rel_tol=0, abs_tol=EPS):
+            avisos.append(f"gasto profesor esperado = {-remuneracion:.2f}")
+
+    return avisos
+
 
 # ---------- interacción ----------
 def _seleccionar_actividad():
@@ -158,23 +243,25 @@ def _alta_individual():
     print(f"Actividad seleccionada: {nombre} ({f_ini} a {f_fin})")
 
     fecha = input("Fecha (YYYY-MM-DD): ").strip()
-    _validar_fecha_en_actividad(fecha, act)
-
     importe = _coerce_importe(input("Importe (positivo => ingreso / negativo => gasto): "))
     if importe == 0:
         print("Error: el importe no puede ser 0.")
         return
-
+    
     tipo = "ingreso" if importe > 0 else "gasto"
-    # Validación de coherencia (mantiene la semántica centralizada)
     _validar_regla_signo(tipo, importe)
+    _validar_fecha_en_actividad(fecha, act, tipo)
+
 
     descripcion = input("Descripción: ").strip()
     categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
     confirmado = 1  # si quieres pedirlo, cámbialo aquí
 
     # Validación contra cantidades esperadas de la actividad
-    _validar_cantidades_esperadas(act, tipo, importe, categoria)
+    avisos = _avisar_cantidades_esperadas(act, tipo, importe, categoria)
+    for a in avisos:
+        print("AVISO:", a)
+
 
     # Duplicado
     if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
@@ -204,16 +291,15 @@ def _alta_individual():
         print("Operación cancelada.")
 
 def _cargar_csv():
-    print("\n=== Carga masiva CSV ===")
-    print(f"Los archivos deben estar en la carpeta: {CARPETA_CARGA}")
-    nombre = input("Nombre del archivo CSV (ej: movimientos.csv): ").strip()
-    ruta = os.path.join(CARPETA_CARGA, nombre)
-    if not os.path.isfile(ruta):
-        print("Error: archivo no encontrado.")
+    
+    ruta_csv = _seleccionar_csv_movimientos()
+    if not ruta_csv:
+        print("Operación cancelada.")
         return
+    print(f"\nCargando movimientos desde: {os.path.basename(ruta_csv)}")
 
     ok, ko = [], []
-    with open(ruta, newline='', encoding="utf-8") as f:
+    with open(ruta_csv, newline='', encoding="utf-8") as f:
         reader = csv.DictReader(f)
         fila_n = 0
         for row in reader:
@@ -237,12 +323,17 @@ def _cargar_csv():
 
                 tipo = _validar_tipo(row.get("tipo",""))
                 fecha = (row.get("fecha") or "").strip()
-                _validar_fecha_en_actividad(fecha, act)
                 importe = _coerce_importe(row.get("importe",""))
+
                 _validar_regla_signo(tipo, importe)
+                _validar_fecha_en_actividad(fecha, act, tipo)
+
                 descripcion = (row.get("descripcion") or "").strip()
                 categoria = _validar_categoria(row.get("categoria","otro"))
-                _validar_cantidades_esperadas(act, tipo, importe, categoria)
+                avisos  = _avisar_cantidades_esperadas(act, tipo, importe, categoria)
+                for a in avisos:
+                    print("AVISO:", a)
+
 
                 if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
                     raise ValueError("duplicado")

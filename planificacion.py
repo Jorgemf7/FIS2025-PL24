@@ -13,46 +13,40 @@ class PlanificacionActividad:
     def planificar_actividad(
         nombre, objetivos, contenidos, profesor_email, colegio_nombre,
         remuneracion, fecha_inicio, fecha_fin, lugar,
-        fecha_apertura, fecha_cierre, gratuita=False, cuota=0.0
+        fecha_apertura, fecha_cierre, gratuita=False, cuota=0.0, plazas=10  # <- añadido plazas
     ):
-        # Validaciones mínimas de negocio (además de los CHECK de la BD)
-        if not nombre or not colegio_nombre or not profesor_email:
-            raise ValueError("Nombre de actividad, colegio y email de profesor son obligatorios.")
-        if gratuita and float(cuota) != 0.0:
-            raise ValueError("Si la actividad es gratuita, la cuota debe ser 0.")
-
         con = PlanificacionActividad._connect()
         try:
             cur = con.cursor()
-            # Resolver claves por nombre/email
+
+            # id_colegio
             cur.execute("SELECT id_colegio FROM colegio WHERE nombre = ?", (colegio_nombre,))
             row = cur.fetchone()
             if not row:
                 raise ValueError(f"Colegio no encontrado: {colegio_nombre}")
             id_colegio = row[0]
 
+            # id_profesor
             cur.execute("SELECT id_profesor FROM profesor WHERE email = ?", (profesor_email,))
             row = cur.fetchone()
             if not row:
                 raise ValueError(f"Profesor no encontrado por email: {profesor_email}")
             id_profesor = row[0]
 
-            # Insertar actividad
-            cur.execute(
-                '''
+            # Insertar actividad (incluye plazas)
+            cur.execute("""
                 INSERT INTO actividad (
                     id_colegio, id_profesor, nombre, objetivos, contenidos, remuneracion,
-                    fecha_inicio, fecha_fin, lugar, fecha_apertura_inscripcion, fecha_cierre_inscripcion,
-                    gratuita, cuota
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (
-                    id_colegio, id_profesor, nombre, objetivos, contenidos, float(remuneracion),
-                    fecha_inicio, fecha_fin, lugar, fecha_apertura, fecha_cierre,
-                    1 if gratuita else 0, float(cuota)
-                )
-            )
+                    fecha_inicio, fecha_fin, lugar,
+                    fecha_apertura_inscripcion, fecha_cierre_inscripcion,
+                    gratuita, cuota, plazas
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                id_colegio, id_profesor, nombre, objetivos, contenidos, float(remuneracion),
+                fecha_inicio, fecha_fin, lugar,
+                fecha_apertura, fecha_cierre,
+                1 if gratuita else 0, float(cuota), int(plazas)
+            ))
             con.commit()
             return cur.lastrowid
         finally:

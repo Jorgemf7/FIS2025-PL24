@@ -1,0 +1,7 @@
+actividad_nombre,tipo,fecha,importe,descripcion,categoria
+Administración de BBDD Neo4J,ingreso,2025-11-04,150,Pago Alicia (parcial),alumno
+Administración de BBDD Neo4J,ingreso,2025-11-03,100,Pago Juan (1º parcial),alumno
+Administración de BBDD Neo4J,ingreso,2025-11-04,100,Pago Juan (2º parcial por aviso),alumno
+Scrum Master,ingreso,2025-09-04,550,Pago Alicia,alumno
+Scrum Master,ingreso,2025-09-04,500,Pago Juan,alumno
+Scrum Master,gasto,2025-11-03,-3025,Pago profesor,profesor

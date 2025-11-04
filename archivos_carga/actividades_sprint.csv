@@ -1,0 +1,3 @@
+colegio,profesor_email,nombre,objetivos,contenidos,remuneracion,fecha_inicio,fecha_fin,lugar,fecha_apertura,fecha_cierre,cuota,gratuita,plazas
+Colegio Oficial de Ingenieria Informatica de Asturias,claudio@colegio.es,Administración de BBDD Neo4J,Formación práctica en Neo4J,"Modelo de grafos, Cypher, indexación",1500,2025-12-01,2025-12-05,"Sede COIIPA, Oviedo",2025-11-03,2025-11-21,200,false,10
+Colegio Oficial de Ingenieria Informatica de Castilla y León,fanjul@colegio.es,Scrum Master,Marco Scrum y rol de SM,"Eventos, artefactos, métricas",2500,2025-10-01,2025-10-31,"Sede CPIICYL, Valladolid",2025-09-01,2025-09-19,500,false,8

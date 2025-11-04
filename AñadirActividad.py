@@ -60,17 +60,18 @@ def validar_registro_base(reg):
     return reg
 
 def mostrar_resumen_lote(actividades):
-    cab = ["#", "Colegio", "Profesor", "Nombre", "Inicio", "Fin", "Lugar", "Cuota", "Gratuita", "Remun."]
+    cab = ["#", "Colegio", "Profesor", "Nombre", "Inicio", "Fin", "Lugar", "Cuota", "Gratuita", "Remun.", "Plazas"]
     con = []
     for i, a in enumerate(actividades, 1):
         con.append([
             i, a["colegio"], a["profesor_email"], a["nombre"],
             a["fecha_inicio"], a["fecha_fin"], a["lugar"],
             f"{a['cuota']:.2f}", "Sí" if a["gratuita"] else "No",
-            f"{a['remuneracion']:.2f}",
+            f"{a['remuneracion']:.2f}", a["plazas"]
         ])
     print("\n Resumen de TODAS las actividades a registrar:\n")
     print(tabla(cab, con))
+
 
 # ---------- Modo interactivo ----------
 def capturar_actividad():
@@ -99,6 +100,16 @@ def capturar_actividad():
     if ff < fi:
         print("Error: La fecha de fin no puede ser anterior a la de inicio.")
         return None
+    
+    try:
+        plazas = int(input("Plazas (entero > 0) [10]: ").strip() or "10")
+        if plazas <= 0:
+            print("Error: plazas debe ser > 0.")
+            return None
+    except ValueError:
+        print("Error: plazas inválidas.")
+        return None
+
 
     lugar = input("Lugar donde se celebrará: ").strip()
 
@@ -119,6 +130,7 @@ def capturar_actividad():
     con1 = [
         ["Colegio", colegio],
         ["Profesor", profesor_email],
+        ["Plazas", plazas],
         ["Nombre", nombre],
         ["Objetivos", objetivos],
         ["Contenidos", contenidos],
@@ -137,6 +149,7 @@ def capturar_actividad():
     return {
         "colegio": colegio,
         "profesor_email": profesor_email,
+        "plazas": plazas,
         "nombre": nombre,
         "objetivos": objetivos,
         "contenidos": contenidos,
@@ -187,6 +200,14 @@ def normalizar_y_validar_lote(registros):
             reg = validar_registro_base(reg)
             reg = completar_inscripciones(reg)
             reg = normalizar_gratuita_y_cuota(reg)
+            plz_raw = raw.get("plazas", "")
+            try:
+                plazas = int(str(plz_raw).strip()) if str(plz_raw).strip() != "" else 10
+            except Exception:
+                raise ValueError("plazas inválidas")
+            if plazas <= 0:
+                raise ValueError("plazas debe ser un entero > 0")
+            reg["plazas"] = plazas
             normalizados.append(reg)
         except Exception as e:
             errores.append([idx, raw.get("nombre","<sin nombre>"), str(e)])
@@ -234,6 +255,7 @@ def agregar_actividades_desde_archivo(ruta):
                 fecha_cierre=a["fecha_cierre"],
                 gratuita=a["gratuita"],
                 cuota=a["cuota"],
+                plazas=a["plazas"]
             )
             ok_rows.append([i, a["nombre"], a["colegio"], new_id])
         except Exception as e:
@@ -254,7 +276,7 @@ def agregar_actividades_desde_archivo(ruta):
         print("\n No se pudo insertar ninguna actividad.")
 
 # ---------- Entrypoint ----------
-if __name__ == "__main__":
+def main():
     # Carpeta fija donde buscar archivos de carga
     CARPETA_CARGA = os.path.join(os.path.dirname(__file__), "archivos_carga")
 
@@ -265,35 +287,28 @@ if __name__ == "__main__":
 
     if modo == "2":
         # Modo carga desde archivo en carpeta fija
-        print(f"\n Los archivos deben estar en: {CARPETA_CARGA}")
-        if not os.path.exists(CARPETA_CARGA):
-            print(f"Error: La carpeta '{CARPETA_CARGA}' no existe. Créala y añade los archivos CSV/JSON.")
-            sys.exit(1)
-
-        # Mostrar archivos disponibles
-        disponibles = [f for f in os.listdir(CARPETA_CARGA) if f.lower().endswith((".csv", ".json"))]
+        if not os.path.isdir(CARPETA_CARGA):
+            print(f"No existe la carpeta de carga: {CARPETA_CARGA}")
+            return
+        disponibles = [f for f in os.listdir(CARPETA_CARGA)
+                       if f.lower().endswith((".csv", ".json"))]
         if not disponibles:
-            print("Error: No se encontraron archivos .csv o .json en la carpeta de carga.")
-            sys.exit(1)
+            print("No hay archivos .csv/.json en la carpeta de carga.")
+            return
 
-        print("\nArchivos disponibles para cargar:")
+        print("\nArchivos disponibles en 'archivos_carga':")
         for i, f in enumerate(disponibles, 1):
             print(f"  {i}) {f}")
-
-        sel = input("\nSelecciona el número del archivo a cargar: ").strip()
         try:
-            idx = int(sel) - 1
-            ruta = os.path.join(CARPETA_CARGA, disponibles[idx])
-        except (ValueError, IndexError):
-            print("Error: Selección inválida. Saliendo.")
-            sys.exit(1)
+            idx = int(input("Selecciona número de archivo: ").strip()) - 1
+            if not (0 <= idx < len(disponibles)):
+                print("Selección fuera de rango.")
+                return
+        except Exception:
+            print("Selección inválida.")
+            return
 
-        # Validar extensión y cargar
-        ext = os.path.splitext(ruta)[1].lower()
-        if ext not in (".csv", ".json"):
-            print("Error: Error: extensión no válida. Use .csv o .json.")
-            sys.exit(1)
-
+        ruta = os.path.join(CARPETA_CARGA, disponibles[idx])
         print(f"\n Cargando archivo seleccionado: {disponibles[idx]}")
         try:
             agregar_actividades_desde_archivo(ruta)
@@ -301,16 +316,16 @@ if __name__ == "__main__":
             print(f"Error: Error al cargar el archivo: {e}")
 
     else:
-        # Modo interactivo (tu flujo actual)
+        # Modo interactivo
         actividades = agregar_actividades_interactivas()
         if not actividades:
             print("\nNo hay actividades para registrar. Saliendo.")
-            sys.exit(0)
+            return
         mostrar_resumen_lote(actividades)
         confirmar = input("\n¿Desea registrar estas actividades en la base de datos? (s/n): ").strip().lower()
         if confirmar != "s":
             print(" Operación cancelada. No se insertó ninguna actividad.")
-            sys.exit(0)
+            return
 
         ok_rows, ko_rows = [], []
         for i, a in enumerate(actividades, 1):
@@ -335,7 +350,7 @@ if __name__ == "__main__":
                 ko_rows.append([i, a["nombre"], a["colegio"], str(e)])
 
         if ok_rows:
-            print("\nInserciones correctas:")
+            print("\n Inserciones correctas:")
             print(tabla(["#", "Actividad", "Colegio", "ID nuevo"], ok_rows))
         if ko_rows:
             print("\n Inserciones con error:")
@@ -348,5 +363,6 @@ if __name__ == "__main__":
         else:
             print("\n No se pudo insertar ninguna actividad.")
 
-
+if __name__ == "__main__":
+    main()
 
