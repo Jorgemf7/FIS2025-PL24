@@ -1,15 +1,15 @@
 from datetime import datetime
 from carga_inicial import setup_formacion_db
 import AñadirActividad
-import RegistrarMovimientos       # <-- NUEVO: registro de ingresos/gastos
-import ConsultarBalance           # <-- EXISTENTE: consultas
+import RegistrarMovimientos       
+import ConsultarBalance           
 from utils import prettytable
 
 import sqlite3, os
 
 DB_NAME = "FormacionDB.db"
-RUTA_SQL_REVISION = "carga_inicial/revision_2025_11.sql"     # SQL combinado (reset + datos revisión)
-RUTA_SQL_ESQUEMA  = "carga_inicial/esquema_formacion.sql"    # Solo esquema (BD vacía)
+RUTA_SQL_REVISION = "carga_inicial/revision_2025_11.sql"
+RUTA_SQL_ESQUEMA  = "carga_inicial/esquema_formacion.sql"
 RUTA_SQL_BASE_CSV = "carga_inicial/bd_base_para_csv_revision.sql"
 
 def _ejecutar_sql(path_sql, db_path=DB_NAME):
@@ -24,15 +24,6 @@ def _ejecutar_sql(path_sql, db_path=DB_NAME):
         print(f"OK: BD preparada con {path_sql}")
     finally:
         con.close()
-
-
-def _submenu_cargar_bd():
-    opciones = [
-        "Cargar datos INICIALES (setup_formacion_db)\n",
-        "Cargar datos de la REVISIÓN (reset + seed)\n",
-        "Preparar BD para cargar CSV de la revisión (esquema + colegios/profesores)\n",  # << CAMBIO
-        "Volver atrás\n"
-    ]
 
 
 def _submenu_cargar_bd():
@@ -63,24 +54,24 @@ def _submenu_cargar_bd():
         else:
             print("Cancelado.")
     elif n == 3:
-        print("\nEsto creará el esquema y añadirá los colegios/profesores necesarios para tus CSV.")
+        print("\nEsto creará el esquema y añadirá los colegios/profesores necesarios para trabajar con la aplicación.")
         conf = input("¿Confirmas? (escribe 'CONFIRMAR'): ").strip()
         if conf == "CONFIRMAR":
             _ejecutar_sql(RUTA_SQL_BASE_CSV, DB_NAME)
         else:
             print("Cancelado.")
-
     elif n == 4:
         return
     else:
         print("Esa opción no existe.")
+
 
 def main():
     print("=== SISTEMA DE GESTIÓN DE FORMACIÓN ===\n")
 
     acciones_principales = [
         "Quiero realizar una inserción\n",
-        "Cargar base de datos (inicial / revisión / vacía)\n",  
+        "Cargar base de datos (inicial / revisión / vacía)\n",
         "Quiero realizar consultas\n",
         "Quiero cerrar la aplicación\n"
     ]
@@ -99,8 +90,8 @@ def main():
         # --- INSERCIONES ---
         if numero == 1:
             acciones_insercion = [
-                "Registrar una nueva actividad formativa (interactiva o desde CSV/JSON)\n",
-                "Registrar ingresos/gastos (individual o CSV)\n",
+                "Registrar una nueva actividad formativa\n",
+                "Registrar ingresos/gastos\n",
                 "Volver atrás\n"
             ]
 
@@ -159,11 +150,11 @@ def main():
         else:
             print("Ese número no se encuentra entre las opciones actualmente.")
 
-        # ¿Otra acción?
         respuesta = input("\n¿Deseas hacer otra acción? (S/n): ").strip().lower()
         if respuesta != "s" and respuesta != "":
             print("¡Hasta la próxima!")
             break
+
 
 if __name__ == "__main__":
     main()

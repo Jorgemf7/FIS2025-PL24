@@ -8,8 +8,8 @@ from prettytable import PrettyTable
 from utils.prettytable import tabla   
 from utils.cargar_archivos import cargar_csv, cargar_json
 
-
 DATE_FMT = "%Y-%m-%d"
+DB_PATH = "FormacionDB.db"   # <-- ruta BD
 
 def coerce_float(x, field_name):
     try:
@@ -17,11 +17,52 @@ def coerce_float(x, field_name):
         if field_name == "remuneracion" and v < 0:
             raise ValueError("remuneración negativa")
         if field_name == "cuota" and v < 0:
-            # permitimos 0 o >0 (si quieres impedir negativas estrictamente)
             raise ValueError("cuota negativa")
         return v
     except Exception as e:
         raise ValueError(f"Campo '{field_name}' inválido ({e})")
+
+
+# ---------- Selección de colegio desde la BD ----------
+def _seleccionar_colegio():
+    """Muestra los colegios existentes en la BD y devuelve el nombre elegido.
+       Si falla la consulta, permite escribir el nombre manualmente."""
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        cur.execute("SELECT id_colegio, nombre FROM colegio ORDER BY nombre;")
+        rows = cur.fetchall()
+    except sqlite3.OperationalError as e:
+        print(f"\nAviso: no se pudo leer la tabla 'colegio' ({e}).")
+        colegio = input("Escriba el nombre del colegio: ").strip()
+        return colegio
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+    if not rows:
+        print("\nAviso: no hay colegios registrados en la base de datos.")
+        colegio = input("Escriba el nombre del colegio: ").strip()
+        return colegio
+
+    # Mostrar lista y pedir selección
+    print("\nColegios disponibles:")
+    for idx, (_id, nombre) in enumerate(rows, start=1):
+        print(f"  {idx}) {nombre}")
+
+    while True:
+        sel = input("Seleccione el número de colegio: ").strip()
+        try:
+            n = int(sel)
+            if 1 <= n <= len(rows):
+                return rows[n-1][1]   # devolvemos el nombre
+            else:
+                print("Número fuera de rango. Intente de nuevo.")
+        except ValueError:
+            print("Entrada no válida. Introduzca un número.")
+
 
 def completar_inscripciones(reg):
     """Rellena apertura/cierre si faltan (apertura = inicio-21, cierre = inicio-3)."""
@@ -49,7 +90,6 @@ def validar_registro_base(reg):
     if faltan:
         raise ValueError(f"Faltan campos obligatorios: {', '.join(faltan)}")
 
-    # tipos
     reg["remuneracion"] = coerce_float(reg["remuneracion"], "remuneracion")
     fi = validar_fecha(reg["fecha_inicio"])
     ff = validar_fecha(reg["fecha_fin"])
@@ -76,7 +116,9 @@ def mostrar_resumen_lote(actividades):
 # ---------- Modo interactivo ----------
 def capturar_actividad():
     print("\n=== Registro de una nueva actividad formativa ===")
-    colegio = input("Nombre del colegio: ").strip()
+    # colegio desde la BD
+    colegio = _seleccionar_colegio()
+
     profesor_email = input("Email del profesor: ").strip()
     nombre = input("Nombre de la actividad: ").strip()
     objetivos = input("Objetivos de la actividad: ").strip()
@@ -109,7 +151,6 @@ def capturar_actividad():
     except ValueError:
         print("Error: plazas inválidas.")
         return None
-
 
     lugar = input("Lugar donde se celebrará: ").strip()
 
@@ -163,6 +204,7 @@ def capturar_actividad():
         "cuota": cuota,
     }
 
+
 def agregar_actividades_interactivas():
     actividades = []
     while True:
@@ -175,7 +217,6 @@ def agregar_actividades_interactivas():
         if mas != "s":
             break
     return actividades
-
 
 
 def normalizar_y_validar_lote(registros):
@@ -365,4 +406,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

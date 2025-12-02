@@ -1,6 +1,5 @@
 # formacion/RegistrarMovimientos.py
 import os
-import csv
 import sqlite3
 from datetime import datetime
 from utils.fecha import validar_fecha
@@ -8,67 +7,12 @@ from utils.prettytable import tabla
 import math
 
 DB_PATH = "FormacionDB.db"
-CARPETA_CARGA = "archivos_carga"
 CATEGORIAS = {"alumno", "profesor", "otro"}
 TIPOS = {"ingreso", "gasto"}
 
 # ---------- utilidades de BD ----------
 def _con():
     return sqlite3.connect(DB_PATH)
-
-import os
-
-def _seleccionar_csv_movimientos():
-    """
-    Muestra los .csv de la carpeta 'archivos_carga' y permite elegir:
-    - por número (1..N)
-    - por texto (nombre exacto o subcadena, case-insensitive)
-    Devuelve la ruta absoluta del CSV o None si no hay selección válida.
-    """
-    carpeta = os.path.join(os.path.dirname(__file__), "archivos_carga")
-    if not os.path.isdir(carpeta):
-        print(f"No existe la carpeta de carga: {carpeta}")
-        return None
-
-    # listar .csv (case-insensitive)
-    archivos = [f for f in os.listdir(carpeta) if f.lower().endswith(".csv")]
-    if not archivos:
-        print("No hay archivos .csv en la carpeta de carga.")
-        return None
-
-    print("\nArchivos CSV disponibles en 'archivos_carga':")
-    for i, f in enumerate(archivos, 1):
-        print(f"  {i}) {f}")
-
-    entrada = input("\nElige archivo (número o nombre/parcial): ").strip()
-
-    # 1) ¿Es número?
-    if entrada.isdigit():
-        idx = int(entrada) - 1
-        if 0 <= idx < len(archivos):
-            return os.path.join(carpeta, archivos[idx])
-        print("Selección fuera de rango.")
-        return None
-
-    # 2) Búsqueda por nombre/parcial (case-insensitive)
-    needle = entrada.lower()
-    # primero intenta match exacto
-    exactos = [f for f in archivos if f.lower() == needle]
-    if exactos:
-        return os.path.join(carpeta, exactos[0])
-
-    # luego por subcadena
-    candidatos = [f for f in archivos if needle in f.lower()]
-    if len(candidatos) == 1:
-        return os.path.join(carpeta, candidatos[0])
-    elif len(candidatos) > 1:
-        print("\nCoinciden varios archivos, especifica mejor:")
-        for i, f in enumerate(candidatos, 1):
-            print(f"  {i}) {f}")
-        return None
-
-    print("No se encontró ningún archivo que coincida.")
-    return None
 
 
 def _buscar_actividades_por_nombre(substr):
@@ -112,14 +56,70 @@ def _get_actividad_por_id(id_actividad):
         cur.execute(q, (id_actividad,))
         return cur.fetchone()
 
-def _insertar_movimiento(id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado=1):
+# obtener profesor de la actividad
+def _get_profesor_de_actividad(id_actividad):
+    q = "SELECT id_profesor FROM actividad WHERE id_actividad=?"
+    with _con() as con:
+        cur = con.cursor()
+        cur.execute(q, (id_actividad,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+# listar alumnos inscritos en una actividad
+def _listar_alumnos_de_actividad(id_actividad):
     q = """
-    INSERT INTO movimiento (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado)
-    VALUES (?,?,?,?,?,?,?)
+    SELECT al.id_alumno, al.nombre, al.apellidos, al.email
+    FROM inscripcion i
+    JOIN alumno al ON al.id_alumno = i.id_alumno
+    WHERE i.id_actividad = ?
+    ORDER BY al.nombre, al.apellidos
     """
     with _con() as con:
         cur = con.cursor()
-        cur.execute(q, (id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado))
+        cur.execute(q, (id_actividad,))
+        return cur.fetchall()
+
+# seleccionar alumno para una actividad
+def _seleccionar_alumno_para_actividad(act):
+    """
+    act = fila de actividad (id, nombre, f_ini, f_fin, ...)
+    Devuelve id_alumno o lanza ValueError si no hay selección posible.
+    """
+    id_actividad = act[0]
+    alumnos = _listar_alumnos_de_actividad(id_actividad)
+    if not alumnos:
+        raise ValueError("no hay alumnos inscritos en esta actividad")
+
+    print("\nAlumnos inscritos en la actividad:")
+    for i, (id_al, nombre, apellidos, email) in enumerate(alumnos, 1):
+        nom_completo = (nombre or "") + (" " + apellidos if apellidos else "")
+        print(f"  {i}) {nom_completo.strip()} [{email}]")
+
+    while True:
+        sel = input("Seleccione nº de alumno: ").strip()
+        if not sel.isdigit():
+            print("Introduzca un número válido.")
+            continue
+        n = int(sel)
+        if 1 <= n <= len(alumnos):
+            return alumnos[n-1][0]
+        print("Número fuera de rango.")
+
+
+def _insertar_movimiento(id_actividad, tipo, fecha, importe, descripcion, categoria,
+                         confirmado=1, id_alumno=None, id_profesor=None):
+    q = """
+    INSERT INTO movimiento
+        (id_actividad, tipo, fecha, importe, descripcion, categoria,
+         confirmado, id_alumno, id_profesor)
+    VALUES (?,?,?,?,?,?,?,?,?)
+    """
+    with _con() as con:
+        cur = con.cursor()
+        cur.execute(q, (
+            id_actividad, tipo, fecha, importe, descripcion, categoria,
+            confirmado, id_alumno, id_profesor
+        ))
         return cur.lastrowid
 
 # ---------- validaciones ----------
@@ -148,7 +148,6 @@ def _validar_tipo(t):
     return v
 
 def _validar_fecha_en_actividad(fecha_txt, act, tipo):
-    # act = (id, nombre, f_ini, f_fin, remun, cuota, gratuita, f_ap, f_ci)
     f_ini = validar_fecha(act[2])
     f_fin = validar_fecha(act[3])
     f_ap  = validar_fecha(act[7])
@@ -158,205 +157,172 @@ def _validar_fecha_en_actividad(fecha_txt, act, tipo):
         raise ValueError("fecha con formato inválido (YYYY-MM-DD)")
 
     if tipo == "ingreso":
-        # entre apertura de inscripción y fin del curso (ambos inclusive)
         if f < f_ap or f > f_fin:
             raise ValueError("ingreso fuera de [apertura_inscripción .. fin_curso]")
     else:
-        # gasto: permitir >= apertura de inscripción (puede ser posterior al curso)
         if f < f_ap:
             raise ValueError("gasto anterior a la apertura de inscripción")
 
 
-def _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
-    q = """
-    SELECT 1
-    FROM movimiento
-    WHERE id_actividad=? AND fecha=? AND tipo=? AND importe=? AND descripcion=? AND categoria=?
-    LIMIT 1
-    """
-    with _con() as con:
-        cur = con.cursor()
-        cur.execute(q, (id_actividad, fecha, tipo, importe, descripcion, categoria))
-        return cur.fetchone() is not None
 
-EPS = 5e-3  # tolerancia para comparaciones con decimales
 
-def _avisar_cantidades_esperadas(act, tipo, importe, categoria):
-    """
-    Genera avisos (no bloquea) sobre importes esperados.
-    act = (id, nombre, f_ini, f_fin, remuneracion, cuota, gratuita, f_ap, f_ci)
-    """
-    avisos = []
-    try:
-        remuneracion = float(act[4]) if act[4] is not None else 0.0
-        cuota        = float(act[5]) if act[5] is not None else 0.0
-        gratuita     = bool(act[6])
-    except Exception:
-        return avisos  # si el SELECT cambió, no avisamos
+EPS = 5e-3
 
-    # Aviso: ingresos que no son múltiplo de la cuota (si hay cuota y no es gratuita)
-    if tipo == "ingreso" and not gratuita and cuota > 0:
-        ratio = importe / cuota
-        if not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=EPS):
-            avisos.append(f"importe no es múltiplo exacto de la cuota ({cuota:.2f})")
-
-    # Aviso: gasto de profesor que no coincide con la remuneración (signo negativo)
-    if tipo == "gasto" and categoria == "profesor" and remuneracion > 0:
-        if not math.isclose(importe, -remuneracion, rel_tol=0, abs_tol=EPS):
-            avisos.append(f"gasto profesor esperado = {-remuneracion:.2f}")
-
-    return avisos
 
 
 # ---------- interacción ----------
+def _listar_todas_actividades():
+    q = """
+    SELECT
+        id_actividad,
+        nombre,
+        fecha_inicio,
+        fecha_fin,
+        remuneracion,
+        cuota,
+        gratuita,
+        fecha_apertura_inscripcion,
+        fecha_cierre_inscripcion
+    FROM actividad
+    ORDER BY fecha_inicio, nombre
+    """
+    with _con() as con:
+        cur = con.cursor()
+        cur.execute(q)
+        return cur.fetchall()
+
+
 def _seleccionar_actividad():
+    """
+    Muestra todas las actividades y permite:
+      - introducir un NÚMERO para seleccionar la actividad de la lista actual
+      - introducir TEXTO (>=2 letras) para filtrar por nombre
+      - pulsar ENTER para volver a ver TODAS
+    """
+    base = _listar_todas_actividades()
+    if not base:
+        print("No hay actividades registradas en la base de datos.")
+        return None
+
+    filtradas = base[:]
+
     while True:
-        texto = input("Buscar actividad por nombre (mín. 2 letras): ").strip()
-        if len(texto) < 2:
-            print("Error: introduzca al menos 2 caracteres.")
-            continue
-        filas = _buscar_actividades_por_nombre(texto)
-        if not filas:
-            print("Error: no se encontraron actividades.")
-            continue
-        # listado
         cab = ["#", "ID", "Nombre", "Inicio", "Fin"]
         con = []
-        for i, fila in enumerate(filas, 1):
+        for i, fila in enumerate(filtradas, 1):
             id_a, nombre, f_ini, f_fin = fila[:4]
             con.append([i, id_a, nombre, f_ini, f_fin])
-        print("\nResultados:")
+
+        print("\nActividades disponibles:")
         print(tabla(cab, con))
-        try:
-            sel = int(input("Seleccione # de actividad: ").strip())
-            if sel < 1 or sel > len(filas):
-                print("Error: selección fuera de rango.")
+
+        print("\nIntroduce:")
+        print("  - un NÚMERO para seleccionar esa actividad")
+        print("  - un TEXTO (≥2 letras) para filtrar por nombre")
+        print("  - ENTER vacío para ver TODAS de nuevo")
+
+        entrada = input("Selección / filtro: ").strip()
+
+        if entrada == "":
+            filtradas = base[:]
+            continue
+
+        if entrada.isdigit():
+            n = int(entrada)
+            if 1 <= n <= len(filtradas):
+                return filtradas[n-1]
+            else:
+                print("Error: número fuera de rango.")
                 continue
-            return filas[sel-1]
-        except ValueError:
-            print("Error: seleccione un número válido.")
+
+        if len(entrada) < 2:
+            print("Error: introduzca al menos 2 caracteres para filtrar.")
+            continue
+
+        needle = entrada.lower()
+        nuevas = [fila for fila in base if needle in fila[1].lower()]
+        if not nuevas:
+            print("No se encontraron actividades que coincidan con ese texto.")
+            continue
+
+        filtradas = nuevas
+
 
 def _alta_individual():
     print("\n=== Alta individual de movimiento ===")
     act = _seleccionar_actividad()
+    if act is None:
+        return
     id_actividad, nombre, f_ini, f_fin = act[:4]
     print(f"Actividad seleccionada: {nombre} ({f_ini} a {f_fin})")
 
     fecha = input("Fecha (YYYY-MM-DD): ").strip()
-    importe = _coerce_importe(input("Importe (positivo => ingreso / negativo => gasto): "))
-    if importe == 0:
+
+    # 1) Importe sin signo
+    importe_base = _coerce_importe(input("Importe (valor absoluto, p.ej. 100): "))
+    if importe_base == 0:
         print("Error: el importe no puede ser 0.")
         return
-    
-    tipo = "ingreso" if importe > 0 else "gasto"
+
+    # 2) Tipo explícito
+    tipo = _validar_tipo(input("Tipo (ingreso/gasto): ").strip())
+    # Convertimos a signo correcto según tipo
+    importe = importe_base if tipo == "ingreso" else -importe_base
+
     _validar_regla_signo(tipo, importe)
     _validar_fecha_en_actividad(fecha, act, tipo)
 
-
     descripcion = input("Descripción: ").strip()
     categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
-    confirmado = 1  # si quieres pedirlo, cámbialo aquí
+    confirmado = 1
 
-    # Validación contra cantidades esperadas de la actividad
-    avisos = _avisar_cantidades_esperadas(act, tipo, importe, categoria)
-    for a in avisos:
-        print("AVISO:", a)
-
-
-    # Duplicado
-    if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
-        print("Error: movimiento duplicado.")
+    id_alumno = None
+    id_profesor = None
+    try:
+        if categoria == "alumno":
+            id_alumno = _seleccionar_alumno_para_actividad(act)
+        elif categoria == "profesor":
+            id_profesor = _get_profesor_de_actividad(id_actividad)
+            if id_profesor is None:
+                raise ValueError("la actividad no tiene profesor asociado en la BD")
+    except ValueError as e:
+        print(f"Error al asociar movimiento: {e}")
         return
 
-    # Resumen
+
     cabe = ["Campo","Valor"]
     cont = [
         ["Actividad", f"{nombre} (ID {id_actividad})"],
         ["Fecha", fecha],
-        ["Importe", f"{importe:.2f}"],
+        ["Importe (con signo)", f"{importe:.2f}"],
         ["Tipo", tipo],
         ["Descripción", descripcion],
         ["Categoría", categoria],
+        ["ID alumno", id_alumno if id_alumno is not None else "-"],
+        ["ID profesor", id_profesor if id_profesor is not None else "-"],
         ["Confirmado", confirmado],
     ]
     print("\nResumen a registrar:")
     print(tabla(cabe, cont))
     if (input("¿Confirmar registro? (s/n): ").strip().lower() == "s"):
         try:
-            new_id = _insertar_movimiento(id_actividad, tipo, fecha, importe, descripcion, categoria, confirmado)
+            new_id = _insertar_movimiento(
+                id_actividad, tipo, fecha, importe, descripcion, categoria,
+                confirmado, id_alumno, id_profesor
+            )
             print(f"Movimiento insertado con ID {new_id}.")
         except sqlite3.IntegrityError as e:
             print(f"Error: {e}")
     else:
         print("Operación cancelada.")
 
-def _cargar_csv():
-    
-    ruta_csv = _seleccionar_csv_movimientos()
-    if not ruta_csv:
-        print("Operación cancelada.")
-        return
-    print(f"\nCargando movimientos desde: {os.path.basename(ruta_csv)}")
-
-    ok, ko = [], []
-    with open(ruta_csv, newline='', encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fila_n = 0
-        for row in reader:
-            fila_n += 1
-            try:
-                # Campos requeridos en CSV
-                act_nombre = (row.get("actividad_nombre") or "").strip()
-                if not act_nombre:
-                    raise ValueError("actividad_nombre vacío")
-                # busca 1 coincidencia exacta por nombre; si hay varias, pide ID de nuevo
-                candidatos = _buscar_actividades_por_nombre(act_nombre)
-                # filtra por coincidencia exacta de nombre si existen varias
-                exactos = [r for r in candidatos if r[1].lower() == act_nombre.lower()]
-                if not exactos:
-                    raise ValueError(f"actividad '{act_nombre}' no encontrada")
-                if len(exactos) > 1:
-                    raise ValueError(f"actividad '{act_nombre}' ambigua (existen varias con ese nombre)")
-
-                act = exactos[0]
-                id_actividad = act[0]
-
-                tipo = _validar_tipo(row.get("tipo",""))
-                fecha = (row.get("fecha") or "").strip()
-                importe = _coerce_importe(row.get("importe",""))
-
-                _validar_regla_signo(tipo, importe)
-                _validar_fecha_en_actividad(fecha, act, tipo)
-
-                descripcion = (row.get("descripcion") or "").strip()
-                categoria = _validar_categoria(row.get("categoria","otro"))
-                avisos  = _avisar_cantidades_esperadas(act, tipo, importe, categoria)
-                for a in avisos:
-                    print("AVISO:", a)
-
-
-                if _existe_duplicado(id_actividad, tipo, fecha, importe, descripcion, categoria):
-                    raise ValueError("duplicado")
-
-                new_id = _insertar_movimiento(id_actividad, tipo, fecha, importe, descripcion, categoria, 1)
-                ok.append([fila_n, act_nombre, tipo, fecha, f"{importe:.2f}", descripcion, categoria, new_id])
-            except Exception as e:
-                ko.append([fila_n, (row.get('actividad_nombre') or ''), str(e)])
-
-    if ok:
-        print("\nInserciones correctas:")
-        print(tabla(["#","Actividad","Tipo","Fecha","Importe","Descripción","Categoría","ID"], ok))
-    if ko:
-        print("\nInserciones con error:")
-        print(tabla(["#","Actividad","Error"], ko))
 
 def main():
     print("\n=== Registro de ingresos y gastos ===")
     while True:
         print("\nOpciones:")
         print("  1) Alta individual")
-        print("  2) Carga masiva (CSV)")
-        print("  3) Salir")
+        print("  2) Salir")
         try:
             op = int(input("Seleccione una opción: ").strip())
         except ValueError:
@@ -366,8 +332,6 @@ def main():
         if op == 1:
             _alta_individual()
         elif op == 2:
-            _cargar_csv()
-        elif op == 3:
             break
         else:
             print("Error: opción inválida.")
