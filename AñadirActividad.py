@@ -4,12 +4,12 @@ import sqlite3
 from datetime import datetime, timedelta
 from planificacion import PlanificacionActividad
 from utils.fecha import validar_fecha
-from prettytable import PrettyTable 
-from utils.prettytable import tabla   
-from utils.cargar_archivos import cargar_csv, cargar_json
+from prettytable import PrettyTable
+from utils.prettytable import tabla
 
 DATE_FMT = "%Y-%m-%d"
 DB_PATH = "FormacionDB.db"   # <-- ruta BD
+
 
 def coerce_float(x, field_name):
     try:
@@ -64,6 +64,80 @@ def _seleccionar_colegio():
             print("Entrada no válida. Introduzca un número.")
 
 
+# ---------- Selección de profesor desde la BD ----------
+def _consultar_profesores(filtro=None):
+    """
+    Devuelve lista de (id_profesor, nombre, apellidos, email) filtrando
+    por nombre+apellidos si se proporciona 'filtro'.
+    """
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        base = """
+            SELECT id_profesor, nombre, COALESCE(apellidos, ''), COALESCE(email, '')
+            FROM profesor
+        """
+        params = []
+        if filtro:
+            base += " WHERE LOWER(nombre || ' ' || COALESCE(apellidos, '')) LIKE LOWER(?)"
+            params.append(f"%{filtro.strip()}%")
+        base += " ORDER BY apellidos, nombre, email;"
+        cur.execute(base, params)
+        rows = cur.fetchall()
+        return rows
+    except sqlite3.OperationalError as e:
+        print(f"\nAviso: no se pudo leer la tabla 'profesor' ({e}).")
+        return None
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _seleccionar_profesor():
+    """
+    Permite seleccionar un profesor de la BD con filtro por nombre/apellidos.
+    Devuelve el email del profesor seleccionado.
+    Si no se puede consultar la BD, cae a pedir el email manualmente.
+    """
+    while True:
+        filtro = input(
+            "Filtrar profesor por nombre/apellidos "
+            "(mín. 2 letras, Enter = todos): "
+        ).strip()
+
+        if filtro and len(filtro) < 2:
+            print("Error: introduzca al menos 2 caracteres para filtrar.")
+            continue
+
+        rows = _consultar_profesores(filtro if filtro else None)
+        if rows is None:
+            # Error al leer BD -> pedir email directamente y salir
+            print("No se pudo consultar la lista de profesores.")
+            return input("Introduzca el email del profesor: ").strip()
+
+        if not rows:
+            print("No se encontraron profesores con ese filtro.")
+            continue
+
+        print("\nProfesores disponibles:")
+        for idx, (_id, nombre, apellidos, email) in enumerate(rows, start=1):
+            nom_comp = f"{nombre} {apellidos}".strip()
+            print(f"  {idx}) {nom_comp} <{email}>")
+
+        sel = input("Seleccione el número de profesor: ").strip()
+        try:
+            n = int(sel)
+            if 1 <= n <= len(rows):
+                # devolvemos el email
+                return rows[n-1][3]
+            else:
+                print("Número fuera de rango. Intente de nuevo.")
+        except ValueError:
+            print("Entrada no válida. Introduzca un número.")
+
+
 def completar_inscripciones(reg):
     """Rellena apertura/cierre si faltan (apertura = inicio-21, cierre = inicio-3)."""
     fi = validar_fecha(reg["fecha_inicio"])
@@ -75,6 +149,7 @@ def completar_inscripciones(reg):
         reg["fecha_cierre"] = (fi - timedelta(days=3)).strftime(DATE_FMT)
     return reg
 
+
 def normalizar_gratuita_y_cuota(reg):
     """Si cuota==0 → gratuita=True; si >0 → gratuita=False."""
     cuota = coerce_float(reg.get("cuota", 0), "cuota")
@@ -82,10 +157,13 @@ def normalizar_gratuita_y_cuota(reg):
     reg["gratuita"] = True if cuota == 0 else False
     return reg
 
+
 def validar_registro_base(reg):
     """Valida presencia de campos obligatorios y coherencia de fechas."""
-    obligatorios = ["colegio","profesor_email","nombre","objetivos","contenidos",
-                    "remuneracion","fecha_inicio","fecha_fin","lugar"]
+    obligatorios = [
+        "colegio", "profesor_email", "nombre", "objetivos", "contenidos",
+        "remuneracion", "fecha_inicio", "fecha_fin", "lugar"
+    ]
     faltan = [k for k in obligatorios if not str(reg.get(k, "")).strip()]
     if faltan:
         raise ValueError(f"Faltan campos obligatorios: {', '.join(faltan)}")
@@ -99,8 +177,12 @@ def validar_registro_base(reg):
         raise ValueError("fecha_fin anterior a fecha_inicio")
     return reg
 
+
 def mostrar_resumen_lote(actividades):
-    cab = ["#", "Colegio", "Profesor", "Nombre", "Inicio", "Fin", "Lugar", "Cuota", "Gratuita", "Remun.", "Plazas"]
+    cab = [
+        "#", "Colegio", "Profesor", "Nombre", "Inicio", "Fin",
+        "Lugar", "Cuota", "Gratuita", "Remun.", "Plazas"
+    ]
     con = []
     for i, a in enumerate(actividades, 1):
         con.append([
@@ -116,17 +198,23 @@ def mostrar_resumen_lote(actividades):
 # ---------- Modo interactivo ----------
 def capturar_actividad():
     print("\n=== Registro de una nueva actividad formativa ===")
-    # colegio desde la BD
+
+    # Colegio desde la BD
     colegio = _seleccionar_colegio()
 
-    profesor_email = input("Email del profesor: ").strip()
+    # Profesor desde la BD con filtro
+    profesor_email = _seleccionar_profesor()
+
     nombre = input("Nombre de la actividad: ").strip()
     objetivos = input("Objetivos de la actividad: ").strip()
     contenidos = input("Contenidos de la actividad: ").strip()
 
     # Remuneración
     try:
-        remuneracion = coerce_float(input("Remuneración (€): ").strip(), "remuneracion")
+        remuneracion = coerce_float(
+            input("Remuneración (€): ").strip(),
+            "remuneracion"
+        )
     except ValueError as e:
         print(f"Error: {e}")
         return None
@@ -142,7 +230,13 @@ def capturar_actividad():
     if ff < fi:
         print("Error: La fecha de fin no puede ser anterior a la de inicio.")
         return None
-    
+    # Nueva validación: fecha de inicio no puede ser anterior a hoy
+    hoy = datetime.now().date()
+    if fi.date() < hoy:
+        print(f"Error: La fecha de inicio ({fi.date()}) no puede ser anterior a la fecha actual ({hoy}).")
+        return None
+
+    # Plazas
     try:
         plazas = int(input("Plazas (entero > 0) [10]: ").strip() or "10")
         if plazas <= 0:
@@ -160,7 +254,10 @@ def capturar_actividad():
 
     # Cuota / gratuita
     try:
-        cuota = coerce_float(input("Cuota de inscripción (0 si gratuita): ").strip() or "0", "cuota")
+        cuota = coerce_float(
+            input("Cuota de inscripción (0 si gratuita): ").strip() or "0",
+            "cuota"
+        )
         gratuita = True if cuota == 0 else False
     except ValueError as e:
         print(f"Error: {e}")
@@ -219,64 +316,20 @@ def agregar_actividades_interactivas():
     return actividades
 
 
-def normalizar_y_validar_lote(registros):
-    normalizados = []
-    errores = []
-    for idx, raw in enumerate(registros, start=1):
-        try:
-            reg = {
-                "colegio": str(raw.get("colegio","")).strip(),
-                "profesor_email": str(raw.get("profesor_email","")).strip(),
-                "nombre": str(raw.get("nombre","")).strip(),
-                "objetivos": str(raw.get("objetivos","")).strip(),
-                "contenidos": str(raw.get("contenidos","")).strip(),
-                "remuneracion": raw.get("remuneracion",""),
-                "fecha_inicio": str(raw.get("fecha_inicio","")).strip(),
-                "fecha_fin": str(raw.get("fecha_fin","")).strip(),
-                "lugar": str(raw.get("lugar","")).strip(),
-                "fecha_apertura": str(raw.get("fecha_apertura","")).strip() or None,
-                "fecha_cierre": str(raw.get("fecha_cierre","")).strip() or None,
-                "cuota": raw.get("cuota", 0),
-            }
-            reg = validar_registro_base(reg)
-            reg = completar_inscripciones(reg)
-            reg = normalizar_gratuita_y_cuota(reg)
-            plz_raw = raw.get("plazas", "")
-            try:
-                plazas = int(str(plz_raw).strip()) if str(plz_raw).strip() != "" else 10
-            except Exception:
-                raise ValueError("plazas inválidas")
-            if plazas <= 0:
-                raise ValueError("plazas debe ser un entero > 0")
-            reg["plazas"] = plazas
-            normalizados.append(reg)
-        except Exception as e:
-            errores.append([idx, raw.get("nombre","<sin nombre>"), str(e)])
-    return normalizados, errores
-
-def agregar_actividades_desde_archivo(ruta):
-    ext = os.path.splitext(ruta)[1].lower()
-    if ext == ".json":
-        registros = cargar_json(ruta)
-    elif ext == ".csv":
-        registros = cargar_csv(ruta)
-    else:
-        raise ValueError("Formato no soportado. Use .json o .csv")
-
-    actividades, errores_pre = normalizar_y_validar_lote(registros)
-
-    if errores_pre:
-        print("\n Registros descartados en validación previa:")
-        print(tabla(["#", "Actividad", "Error"], errores_pre))
-
+# ---------- Entrypoint ----------
+def main():
+    # Solo modo interactivo (se elimina CSV/JSON)
+    actividades = agregar_actividades_interactivas()
     if not actividades:
-        print("\n No hay registros válidos para insertar.")
+        print("\nNo hay actividades para registrar. Saliendo.")
         return
 
     mostrar_resumen_lote(actividades)
-    confirmar = input("\n¿Desea registrar estas actividades en la base de datos? (s/n): ").strip().lower()
+    confirmar = input(
+        "\n¿Desea registrar estas actividades en la base de datos? (s/n): "
+    ).strip().lower()
     if confirmar != "s":
-        print("Error: Operación cancelada. No se insertó ninguna actividad.")
+        print(" Operación cancelada. No se insertó ninguna actividad.")
         return
 
     ok_rows, ko_rows = [], []
@@ -296,7 +349,7 @@ def agregar_actividades_desde_archivo(ruta):
                 fecha_cierre=a["fecha_cierre"],
                 gratuita=a["gratuita"],
                 cuota=a["cuota"],
-                plazas=a["plazas"]
+                plazas=a["plazas"],  # ahora se pasa también plazas
             )
             ok_rows.append([i, a["nombre"], a["colegio"], new_id])
         except Exception as e:
@@ -316,93 +369,6 @@ def agregar_actividades_desde_archivo(ruta):
     else:
         print("\n No se pudo insertar ninguna actividad.")
 
-# ---------- Entrypoint ----------
-def main():
-    # Carpeta fija donde buscar archivos de carga
-    CARPETA_CARGA = os.path.join(os.path.dirname(__file__), "archivos_carga")
-
-    print("¿Cómo quieres cargar actividades?")
-    print("  1) Interactivo (introducir actividades a mano)")
-    print("  2) Desde archivo (CSV/JSON)")
-    modo = input("Selecciona 1 o 2: ").strip()
-
-    if modo == "2":
-        # Modo carga desde archivo en carpeta fija
-        if not os.path.isdir(CARPETA_CARGA):
-            print(f"No existe la carpeta de carga: {CARPETA_CARGA}")
-            return
-        disponibles = [f for f in os.listdir(CARPETA_CARGA)
-                       if f.lower().endswith((".csv", ".json"))]
-        if not disponibles:
-            print("No hay archivos .csv/.json en la carpeta de carga.")
-            return
-
-        print("\nArchivos disponibles en 'archivos_carga':")
-        for i, f in enumerate(disponibles, 1):
-            print(f"  {i}) {f}")
-        try:
-            idx = int(input("Selecciona número de archivo: ").strip()) - 1
-            if not (0 <= idx < len(disponibles)):
-                print("Selección fuera de rango.")
-                return
-        except Exception:
-            print("Selección inválida.")
-            return
-
-        ruta = os.path.join(CARPETA_CARGA, disponibles[idx])
-        print(f"\n Cargando archivo seleccionado: {disponibles[idx]}")
-        try:
-            agregar_actividades_desde_archivo(ruta)
-        except Exception as e:
-            print(f"Error: Error al cargar el archivo: {e}")
-
-    else:
-        # Modo interactivo
-        actividades = agregar_actividades_interactivas()
-        if not actividades:
-            print("\nNo hay actividades para registrar. Saliendo.")
-            return
-        mostrar_resumen_lote(actividades)
-        confirmar = input("\n¿Desea registrar estas actividades en la base de datos? (s/n): ").strip().lower()
-        if confirmar != "s":
-            print(" Operación cancelada. No se insertó ninguna actividad.")
-            return
-
-        ok_rows, ko_rows = [], []
-        for i, a in enumerate(actividades, 1):
-            try:
-                new_id = PlanificacionActividad.planificar_actividad(
-                    nombre=a["nombre"],
-                    objetivos=a["objetivos"],
-                    contenidos=a["contenidos"],
-                    profesor_email=a["profesor_email"],
-                    colegio_nombre=a["colegio"],
-                    remuneracion=a["remuneracion"],
-                    fecha_inicio=a["fecha_inicio"],
-                    fecha_fin=a["fecha_fin"],
-                    lugar=a["lugar"],
-                    fecha_apertura=a["fecha_apertura"],
-                    fecha_cierre=a["fecha_cierre"],
-                    gratuita=a["gratuita"],
-                    cuota=a["cuota"],
-                )
-                ok_rows.append([i, a["nombre"], a["colegio"], new_id])
-            except Exception as e:
-                ko_rows.append([i, a["nombre"], a["colegio"], str(e)])
-
-        if ok_rows:
-            print("\n Inserciones correctas:")
-            print(tabla(["#", "Actividad", "Colegio", "ID nuevo"], ok_rows))
-        if ko_rows:
-            print("\n Inserciones con error:")
-            print(tabla(["#", "Actividad", "Colegio", "Error"], ko_rows))
-
-        if not ko_rows:
-            print("\n Proceso completado sin errores.")
-        elif ok_rows:
-            print("\n Proceso completado con algunos errores (las válidas se insertaron).")
-        else:
-            print("\n No se pudo insertar ninguna actividad.")
 
 if __name__ == "__main__":
     main()

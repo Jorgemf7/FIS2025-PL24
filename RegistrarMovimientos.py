@@ -1,7 +1,7 @@
 # formacion/RegistrarMovimientos.py
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from utils.fecha import validar_fecha
 from utils.prettytable import tabla
 import math
@@ -153,21 +153,23 @@ def _validar_fecha_en_actividad(fecha_txt, act, tipo):
     f_ap  = validar_fecha(act[7])
     f_ci  = validar_fecha(act[8])
     f     = validar_fecha(fecha_txt)
+
     if not f:
         raise ValueError("fecha con formato inválido (YYYY-MM-DD)")
 
+    
+
     if tipo == "ingreso":
-        if f < f_ap or f > f_fin:
-            raise ValueError("ingreso fuera de [apertura_inscripción .. fin_curso]")
+        # INGRESOS: apertura → fin + 2 días
+        limite_sup = f_fin + timedelta(days=2)
+        if f < f_ap or f > limite_sup:
+            raise ValueError(
+                "ingreso fuera de [apertura_inscripción .. fin_acción + 2 días]"
+            )
     else:
+        # GASTOS: solo que no sean antes de apertura
         if f < f_ap:
             raise ValueError("gasto anterior a la apertura de inscripción")
-
-
-
-
-EPS = 5e-3
-
 
 
 # ---------- interacción ----------
@@ -207,11 +209,24 @@ def _seleccionar_actividad():
     filtradas = base[:]
 
     while True:
-        cab = ["#", "ID", "Nombre", "Inicio", "Fin"]
+        # Añadimos las fechas de inscripción en el listado
+        cab = ["#", "ID", "Nombre", "Inicio", "Fin",
+               "Apertura insc.", "Cierre insc."]
+
         con = []
         for i, fila in enumerate(filtradas, 1):
-            id_a, nombre, f_ini, f_fin = fila[:4]
-            con.append([i, id_a, nombre, f_ini, f_fin])
+            (
+                id_a,
+                nombre,
+                f_ini,
+                f_fin,
+                remuneracion,
+                cuota,
+                gratuita,
+                f_ap,
+                f_ci,
+            ) = fila
+            con.append([i, id_a, nombre, f_ini, f_fin, f_ap, f_ci])
 
         print("\nActividades disponibles:")
         print(tabla(cab, con))
@@ -248,6 +263,7 @@ def _seleccionar_actividad():
         filtradas = nuevas
 
 
+
 def _alta_individual():
     print("\n=== Alta individual de movimiento ===")
     act = _seleccionar_actividad()
@@ -256,21 +272,39 @@ def _alta_individual():
     id_actividad, nombre, f_ini, f_fin = act[:4]
     print(f"Actividad seleccionada: {nombre} ({f_ini} a {f_fin})")
 
-    fecha = input("Fecha (YYYY-MM-DD): ").strip()
+    # 1) Tipo primero (ingreso / gasto)
+    tipo = _validar_tipo(input("Tipo (ingreso/gasto): ").strip())
 
-    # 1) Importe sin signo
-    importe_base = _coerce_importe(input("Importe (valor absoluto, p.ej. 100): "))
+    # 2) Fecha, validada inmediatamente según el tipo y la actividad
+    while True:
+        fecha = input("Fecha (YYYY-MM-DD) [ENTER para cancelar]: ").strip()
+        if fecha == "":
+            print("Operación cancelada.")
+            return
+        try:
+            _validar_fecha_en_actividad(fecha, act, tipo)
+            break
+        except ValueError as e:
+            print(f"Error en la fecha: {e}")
+
+    # 3) Importe sin signo
+    try:
+        importe_base = _coerce_importe(input("Importe (valor absoluto, p.ej. 100): "))
+    except ValueError as e:
+        print(f"Error: {e}")
+        return
+
     if importe_base == 0:
         print("Error: el importe no puede ser 0.")
         return
 
-    # 2) Tipo explícito
-    tipo = _validar_tipo(input("Tipo (ingreso/gasto): ").strip())
     # Convertimos a signo correcto según tipo
     importe = importe_base if tipo == "ingreso" else -importe_base
-
-    _validar_regla_signo(tipo, importe)
-    _validar_fecha_en_actividad(fecha, act, tipo)
+    try:
+        _validar_regla_signo(tipo, importe)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return
 
     descripcion = input("Descripción: ").strip()
     categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
@@ -288,7 +322,6 @@ def _alta_individual():
     except ValueError as e:
         print(f"Error al asociar movimiento: {e}")
         return
-
 
     cabe = ["Campo","Valor"]
     cont = [
