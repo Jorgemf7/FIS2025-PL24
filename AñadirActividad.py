@@ -219,7 +219,7 @@ def capturar_actividad():
         print(f"Error: {e}")
         return None
 
-    # Fechas
+        # Fechas
     fecha_inicio_txt = input("Fecha de inicio (YYYY-MM-DD): ").strip()
     fecha_fin_txt = input("Fecha de fin (YYYY-MM-DD): ").strip()
     fi = validar_fecha(fecha_inicio_txt)
@@ -230,11 +230,13 @@ def capturar_actividad():
     if ff < fi:
         print("Error: La fecha de fin no puede ser anterior a la de inicio.")
         return None
+
     # Nueva validación: fecha de inicio no puede ser anterior a hoy
     hoy = datetime.now().date()
-    if fi.date() < hoy:
-        print(f"Error: La fecha de inicio ({fi.date()}) no puede ser anterior a la fecha actual ({hoy}).")
+    if fi < hoy:
+        print(f"Error: La fecha de inicio ({fi}) no puede ser anterior a la fecha actual ({hoy}).")
         return None
+
 
     # Plazas
     try:

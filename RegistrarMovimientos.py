@@ -1,10 +1,8 @@
 # formacion/RegistrarMovimientos.py
-import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import timedelta
 from utils.fecha import validar_fecha
 from utils.prettytable import tabla
-import math
 
 DB_PATH = "FormacionDB.db"
 CATEGORIAS = {"alumno", "profesor", "otro"}
@@ -36,6 +34,7 @@ def _buscar_actividades_por_nombre(substr):
         cur.execute(q, (f"%{substr.strip()}%",))
         return cur.fetchall()
 
+
 def _get_actividad_por_id(id_actividad):
     q = """
     SELECT
@@ -56,6 +55,7 @@ def _get_actividad_por_id(id_actividad):
         cur.execute(q, (id_actividad,))
         return cur.fetchone()
 
+
 # obtener profesor de la actividad
 def _get_profesor_de_actividad(id_actividad):
     q = "SELECT id_profesor FROM actividad WHERE id_actividad=?"
@@ -64,6 +64,7 @@ def _get_profesor_de_actividad(id_actividad):
         cur.execute(q, (id_actividad,))
         row = cur.fetchone()
         return row[0] if row else None
+
 
 # listar alumnos inscritos en una actividad
 def _listar_alumnos_de_actividad(id_actividad):
@@ -78,6 +79,7 @@ def _listar_alumnos_de_actividad(id_actividad):
         cur = con.cursor()
         cur.execute(q, (id_actividad,))
         return cur.fetchall()
+
 
 # seleccionar alumno para una actividad
 def _seleccionar_alumno_para_actividad(act):
@@ -122,6 +124,7 @@ def _insertar_movimiento(id_actividad, tipo, fecha, importe, descripcion, catego
         ))
         return cur.lastrowid
 
+
 # ---------- validaciones ----------
 def _coerce_importe(s):
     try:
@@ -129,11 +132,13 @@ def _coerce_importe(s):
     except Exception:
         raise ValueError("importe no numérico")
 
+
 def _validar_regla_signo(tipo, importe):
     if tipo == "ingreso" and not (importe > 0):
         raise ValueError("los ingresos deben ser positivos")
     if tipo == "gasto" and not (importe < 0):
         raise ValueError("los gastos deben ser negativos")
+
 
 def _validar_categoria(cat):
     c = str(cat).strip().lower() or "otro"
@@ -141,13 +146,15 @@ def _validar_categoria(cat):
         raise ValueError("categoría inválida (use alumno|profesor|otro)")
     return c
 
+
 def _validar_tipo(t):
     v = str(t).strip().lower()
     if v not in TIPOS:
         raise ValueError("tipo inválido (use ingreso|gasto)")
     return v
 
-def _validar_fecha_en_actividad(fecha_txt, act, tipo):
+
+def _validar_fecha_en_actividad(fecha_txt, act, tipo, categoria=None):
     f_ini = validar_fecha(act[2])
     f_fin = validar_fecha(act[3])
     f_ap  = validar_fecha(act[7])
@@ -157,15 +164,21 @@ def _validar_fecha_en_actividad(fecha_txt, act, tipo):
     if not f:
         raise ValueError("fecha con formato inválido (YYYY-MM-DD)")
 
-    
-
     if tipo == "ingreso":
-        # INGRESOS: apertura → fin + 2 días
-        limite_sup = f_fin + timedelta(days=2)
-        if f < f_ap or f > limite_sup:
-            raise ValueError(
-                "ingreso fuera de [apertura_inscripción .. fin_acción + 2 días]"
-            )
+        if categoria == "alumno":
+            # INGRESOS DE ALUMNOS: apertura → fin + 2 días
+            limite_sup = f_fin + timedelta(days=2)
+            if f < f_ap or f > limite_sup:
+                raise ValueError(
+                    "ingreso de alumno fuera de "
+                    "[apertura_inscripción .. fin_acción + 2 días]"
+                )
+        else:
+            # OTROS INGRESOS: solo que no sean antes de la apertura
+            if f < f_ap:
+                raise ValueError(
+                    "ingreso anterior a la apertura de inscripción"
+                )
     else:
         # GASTOS: solo que no sean antes de apertura
         if f < f_ap:
@@ -263,7 +276,6 @@ def _seleccionar_actividad():
         filtradas = nuevas
 
 
-
 def _alta_individual():
     print("\n=== Alta individual de movimiento ===")
     act = _seleccionar_actividad()
@@ -275,19 +287,24 @@ def _alta_individual():
     # 1) Tipo primero (ingreso / gasto)
     tipo = _validar_tipo(input("Tipo (ingreso/gasto): ").strip())
 
-    # 2) Fecha, validada inmediatamente según el tipo y la actividad
+    # 2) Categoría, porque afecta a la validación de la fecha
+    categoria = _validar_categoria(
+        input("Categoría (alumno/profesor/otro) [otro]: ") or "otro"
+    )
+
+    # 3) Fecha, validada inmediatamente según tipo, categoría y actividad
     while True:
         fecha = input("Fecha (YYYY-MM-DD) [ENTER para cancelar]: ").strip()
         if fecha == "":
             print("Operación cancelada.")
             return
         try:
-            _validar_fecha_en_actividad(fecha, act, tipo)
+            _validar_fecha_en_actividad(fecha, act, tipo, categoria)
             break
         except ValueError as e:
             print(f"Error en la fecha: {e}")
 
-    # 3) Importe sin signo
+    # 4) Importe sin signo
     try:
         importe_base = _coerce_importe(input("Importe (valor absoluto, p.ej. 100): "))
     except ValueError as e:
@@ -307,7 +324,6 @@ def _alta_individual():
         return
 
     descripcion = input("Descripción: ").strip()
-    categoria = _validar_categoria(input("Categoría (alumno/profesor/otro) [otro]: ") or "otro")
     confirmado = 1
 
     id_alumno = None
@@ -323,7 +339,7 @@ def _alta_individual():
         print(f"Error al asociar movimiento: {e}")
         return
 
-    cabe = ["Campo","Valor"]
+    cabe = ["Campo", "Valor"]
     cont = [
         ["Actividad", f"{nombre} (ID {id_actividad})"],
         ["Fecha", fecha],
@@ -368,6 +384,7 @@ def main():
             break
         else:
             print("Error: opción inválida.")
+
 
 if __name__ == "__main__":
     main()
